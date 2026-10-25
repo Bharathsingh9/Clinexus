@@ -1,0 +1,31 @@
+eval_id,question,question_type,num_relevant,first_relevant_rank,recall_at_5,recall_at_10,precision_at_5,reciprocal_rank
+Q001,What type of DMD can viltolarsen be used for?,factoid,9,2,0.2222,0.4444,0.4,0.5
+Q002,When is the protein OAS1 activated?,factoid,5,1,0.4,0.6,0.4,1.0
+Q003,What does polyadenylate-binding protein 4 (PABP4) bind to?,factoid,12,1,0.4167,0.75,1.0,1.0
+Q004,How is oprozomib administered?,factoid,11,1,0.2727,0.4545,0.6,1.0
+Q005,What is the function of the TMEM132 genes?,factoid,5,1,0.8,0.8,0.8,1.0
+Q006,What bacteria is associated with Gastric cancer and peptic ulcers?,factoid,7,1,0.7143,1.0,1.0,1.0
+Q007,What is formin associated with in the snail?,factoid,4,1,0.75,0.75,0.6,1.0
+Q008,Which epigenetic marks are deposited by PRC1?,factoid,6,1,0.5,0.6667,0.6,1.0
+Q009,List genes that have been found mutated in CMT1A (Charcot-Marie-Tooth disease type 1 A).,list,9,7,0.0,0.1111,0.0,0.1429
+Q010,which mutations of phospholamban gene have been found to cause hypertrophic cardiomyopathy?,list,5,1,0.6,0.6,0.6,1.0
+Q011,What are the targets of zenocutuzumab?,list,7,1,0.7143,1.0,1.0,1.0
+Q012,List genes associated with hypolipidemia.,list,7,1,0.7143,1.0,1.0,1.0
+Q013,"What forms part of the senescence associated secretory phenotype, or SASP?",list,9,1,0.5556,0.7778,1.0,1.0
+Q014,List metalloenzyme inhibitors.,list,9,1,0.3333,0.4444,0.6,1.0
+Q015,What medication were tested in the TRICOTEL trial?,list,4,2,0.5,0.5,0.4,0.5
+Q016,Does smoking increase risk for glioblastoma?,yesno,9,1,0.5556,0.5556,1.0,1.0
+Q017,Is hydroxyurea usually used to treated infectious disease?,yesno,6,1,0.6667,0.8333,0.8,1.0
+Q018,Are cyclophilins proteins that bind to prolines?,yesno,4,1,0.75,0.75,0.6,1.0
+Q019,Can breastfeeding be used to alleviate the procedural pain in neonates?,yesno,4,1,0.75,0.75,0.6,1.0
+Q020,Are there plasma membrane receptors for thyroid hormones?,yesno,4,1,0.5,0.5,0.4,1.0
+Q021,Is oxalate renal excretion increased after bariatric surgery?,yesno,5,1,0.8,1.0,0.8,1.0
+Q022,Can Preimplantation Genetic Diagnosis (PGD) be used for gender selection?,yesno,12,1,0.4167,0.75,1.0,1.0
+Q023,What is regioneR?,summary,6,1,0.8333,1.0,1.0,1.0
+Q024,How are CRM (cis-regulatory modules) defined?,summary,12,1,0.3333,0.3333,0.8,1.0
+Q025,What is an E-box and what is its role in gene regulation of cancer?,summary,6,1,0.8333,0.8333,1.0,1.0
+Q026,What is metaSPAdes?,summary,7,1,0.5714,0.7143,0.8,1.0
+Q027,What was tested in the PATCH-Trauma trial?,summary,6,1,0.8333,1.0,1.0,1.0
+Q028,Why does cranberry juice help combat urinary tract infections?,summary,9,1,0.5556,0.5556,1.0,1.0
+Q029,What is filgotinib?,summary,6,7,0.0,0.5,0.0,0.1429
+Q030,What is the mechanism of action of abiraterone?,summary,4,1,0.5,0.75,0.4,1.0

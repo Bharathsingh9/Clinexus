@@ -16,3 +16,7 @@ ENV/
 .idea/
 .DS_Store
 Thumbs.db
+
+# Large binary files (embeddings, indexes)
+*.npy
+*.index

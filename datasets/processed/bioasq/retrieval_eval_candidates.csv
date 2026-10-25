@@ -1,0 +1,31 @@
+eval_id,question,question_type,sample_id
+Q001,What type of DMD can viltolarsen be used for?,factoid,6417900b690f196b5100002a
+Q002,When is the protein OAS1 activated?,factoid,62587803e764a5320400002b
+Q003,What does polyadenylate-binding protein 4 (PABP4) bind to?,factoid,5326a85ad6d3ac6a3400000b
+Q004,How is oprozomib administered?,factoid,56ecfd572ac5ed1459000002
+Q005,What is the function of the TMEM132 genes?,factoid,5a6e472ab750ff4455000048
+Q006,What bacteria is associated with Gastric cancer and peptic ulcers?,factoid,5e3c6c9eb5b409ea53000022
+Q007,What is formin associated with in the snail?,factoid,587f795d92a5b8ad44000007
+Q008,Which epigenetic marks are deposited by PRC1?,factoid,5d35ee08b3a6380763000012
+Q009,List genes that have been found mutated in CMT1A (Charcot-Marie-Tooth disease type 1 A).,list,54d65b6b3706e8952800000c
+Q010,which mutations of phospholamban gene have been found to cause hypertrophic cardiomyopathy?,list,531376c8e3eabad021000012
+Q011,What are the targets of zenocutuzumab?,list,67e56ff018b1e36f2e0000b1
+Q012,List genes associated with hypolipidemia.,list,58dfd83a6fddd3e83e000003
+Q013,"What forms part of the senescence associated secretory phenotype, or SASP?",list,5c0e82b2133db5eb7800002d
+Q014,List metalloenzyme inhibitors.,list,58ce5c7c1f5fb2b734000001
+Q015,What medication were tested in the TRICOTEL trial?,list,65d373151930410b13000048
+Q016,Does smoking increase risk for glioblastoma?,yesno,550e7d6aa103b7801600000e
+Q017,Is hydroxyurea usually used to treated infectious disease?,yesno,58dbbdac8acda3452900001e
+Q018,Are cyclophilins proteins that bind to prolines?,yesno,56f6a63d09dd18d46b00000c
+Q019,Can breastfeeding be used to alleviate the procedural pain in neonates?,yesno,64412c2757b1c7a315000055
+Q020,Are there plasma membrane receptors for thyroid hormones?,yesno,532c169ed6d3ac6a3400001f
+Q021,Is oxalate renal excretion increased after bariatric surgery?,yesno,52df887498d023950500000c
+Q022,Can Preimplantation Genetic Diagnosis (PGD) be used for gender selection?,yesno,52b2ed144003448f55000004
+Q023,What is regioneR?,summary,587e3f4e2420191125000003
+Q024,How are CRM (cis-regulatory modules) defined?,summary,56f3eebd2ac5ed1459000016
+Q025,What is an E-box and what is its role in gene regulation of cancer?,summary,67eaf32618b1e36f2e0000e3
+Q026,What is metaSPAdes?,summary,5a80d965faa1ab7d2e000025
+Q027,What was tested in the PATCH-Trauma trial?,summary,65cfd9071930410b13000024
+Q028,Why does cranberry juice help combat urinary tract infections?,summary,5314ad66dae131f847000004
+Q029,What is filgotinib?,summary,5a760a4183b0d9ea66000016
+Q030,What is the mechanism of action of abiraterone?,summary,5148b466d24251bc05000037

@@ -1,0 +1,31 @@
+eval_id,question,question_type,sample_id,relevant_evidence_ids,annotation_notes
+Q001,What type of DMD can viltolarsen be used for?,factoid,6417900b690f196b5100002a,E052201 E052202 E052203 E052204 E052205 E052206 E052207 E052208 E052209,BioASQ reference evidence set contains 9 passages.
+Q002,When is the protein OAS1 activated?,factoid,62587803e764a5320400002b,E048815 E048816 E048817 E048818 E048819,BioASQ reference evidence set contains 5 passages.
+Q003,What does polyadenylate-binding protein 4 (PABP4) bind to?,factoid,5326a85ad6d3ac6a3400000b,E010661 E010662 E010663 E010664 E010665 E010666 E010667 E010668 E010669 E010670 E010671 E010672,BioASQ reference evidence set contains 12 passages.
+Q004,How is oprozomib administered?,factoid,56ecfd572ac5ed1459000002,E002609 E002610 E002611 E002612 E002613 E002614 E002615 E002616 E002617 E002618 E002619,BioASQ reference evidence set contains 11 passages.
+Q005,What is the function of the TMEM132 genes?,factoid,5a6e472ab750ff4455000048,E030349 E030350 E030351 E030352 E030353,BioASQ reference evidence set contains 5 passages.
+Q006,What bacteria is associated with Gastric cancer and peptic ulcers?,factoid,5e3c6c9eb5b409ea53000022,E039402 E039403 E039404 E039405 E039406 E039407 E039408,BioASQ reference evidence set contains 7 passages.
+Q007,What is formin associated with in the snail?,factoid,587f795d92a5b8ad44000007,E025476 E025477 E025478 E025479,BioASQ reference evidence set contains 4 passages.
+Q008,Which epigenetic marks are deposited by PRC1?,factoid,5d35ee08b3a6380763000012,E043483 E043484 E043485 E043486 E043487 E043488,BioASQ reference evidence set contains 6 passages.
+Q009,List genes that have been found mutated in CMT1A (Charcot-Marie-Tooth disease type 1 A).,list,54d65b6b3706e8952800000c,E001792 E001793 E001794 E001795 E001796 E001797 E001798 E001799 E001800,BioASQ reference evidence set contains 9 passages.
+Q010,which mutations of phospholamban gene have been found to cause hypertrophic cardiomyopathy?,list,531376c8e3eabad021000012,E002815 E002816 E002817 E002818 E002819,BioASQ reference evidence set contains 5 passages.
+Q011,What are the targets of zenocutuzumab?,list,67e56ff018b1e36f2e0000b1,E065432 E065433 E065434 E065435 E065436 E065437 E065438,BioASQ reference evidence set contains 7 passages.
+Q012,List genes associated with hypolipidemia.,list,58dfd83a6fddd3e83e000003,E027565 E027566 E027567 E027568 E027569 E027570 E027571,BioASQ reference evidence set contains 7 passages.
+Q013,"What forms part of the senescence associated secretory phenotype, or SASP?",list,5c0e82b2133db5eb7800002d,E034542 E034543 E034544 E034545 E034546 E034547 E034548 E034549 E034550,BioASQ reference evidence set contains 9 passages.
+Q014,List metalloenzyme inhibitors.,list,58ce5c7c1f5fb2b734000001,E026879 E026880 E026881 E026882 E026883 E026884 E026885 E026886 E026887,BioASQ reference evidence set contains 9 passages.
+Q015,What medication were tested in the TRICOTEL trial?,list,65d373151930410b13000048,E056427 E056428 E056429 E056430,BioASQ reference evidence set contains 4 passages.
+Q016,Does smoking increase risk for glioblastoma?,yesno,550e7d6aa103b7801600000e,E015143 E015144 E015145 E015146 E015147 E015148 E015149 E015150 E015151,BioASQ reference evidence set contains 9 passages.
+Q017,Is hydroxyurea usually used to treated infectious disease?,yesno,58dbbdac8acda3452900001e,E028937 E028938 E028939 E028940 E028941 E028942,BioASQ reference evidence set contains 6 passages.
+Q018,Are cyclophilins proteins that bind to prolines?,yesno,56f6a63d09dd18d46b00000c,E004089 E004090 E004091 E004092,BioASQ reference evidence set contains 4 passages.
+Q019,Can breastfeeding be used to alleviate the procedural pain in neonates?,yesno,64412c2757b1c7a315000055,E051645 E051646 E051647 E051648,BioASQ reference evidence set contains 4 passages.
+Q020,Are there plasma membrane receptors for thyroid hormones?,yesno,532c169ed6d3ac6a3400001f,E012146 E012147 E012148 E012149,BioASQ reference evidence set contains 4 passages.
+Q021,Is oxalate renal excretion increased after bariatric surgery?,yesno,52df887498d023950500000c,E012304 E012305 E012306 E012307 E012308,BioASQ reference evidence set contains 5 passages.
+Q022,Can Preimplantation Genetic Diagnosis (PGD) be used for gender selection?,yesno,52b2ed144003448f55000004,E021198 E021199 E021200 E021201 E021202 E021203 E021204 E021205 E021206 E021207 E021208 E021209,BioASQ reference evidence set contains 12 passages.
+Q023,What is regioneR?,summary,587e3f4e2420191125000003,E024029 E024030 E024031 E024032 E024033 E024034,BioASQ reference evidence set contains 6 passages.
+Q024,How are CRM (cis-regulatory modules) defined?,summary,56f3eebd2ac5ed1459000016,E012966 E012967 E012968 E012969 E012970 E012971 E012972 E012973 E012974 E012975 E012976 E012977,BioASQ reference evidence set contains 12 passages.
+Q025,What is an E-box and what is its role in gene regulation of cancer?,summary,67eaf32618b1e36f2e0000e3,E064936 E064937 E064938 E064939 E064940 E064941,BioASQ reference evidence set contains 6 passages.
+Q026,What is metaSPAdes?,summary,5a80d965faa1ab7d2e000025,E029559 E029560 E029561 E029562 E029563 E029564 E029565,BioASQ reference evidence set contains 7 passages.
+Q027,What was tested in the PATCH-Trauma trial?,summary,65cfd9071930410b13000024,E059361 E059362 E059363 E059364 E059365 E059366,BioASQ reference evidence set contains 6 passages.
+Q028,Why does cranberry juice help combat urinary tract infections?,summary,5314ad66dae131f847000004,E008047 E008048 E008049 E008050 E008051 E008052 E008053 E008054 E008055,BioASQ reference evidence set contains 9 passages.
+Q029,What is filgotinib?,summary,5a760a4183b0d9ea66000016,E030825 E030826 E030827 E030828 E030829 E030830,BioASQ reference evidence set contains 6 passages.
+Q030,What is the mechanism of action of abiraterone?,summary,5148b466d24251bc05000037,E017816 E017817 E017818 E017819,BioASQ reference evidence set contains 4 passages.
