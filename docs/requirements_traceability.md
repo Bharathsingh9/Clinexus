@@ -1,0 +1,70 @@
+# Requirements Traceability Matrix
+
+Columns:
+- **Req ID**: Unique requirement identifier
+- **Requirement**: Summary description
+- **Source**: Section in `docs/SPEC.md`
+- **Module**: Target backend/frontend implementation file
+- **Test file**: Verification test suite
+- **Status**: `DONE` | `IN_PROGRESS` | `NOT_STARTED` | `BLOCKED`
+
+| Req ID | Requirement | Source | Module | Test file | Status |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **AGT-1** | Clinical Text Clarifier: extract stated findings, polarity, source spans, symptom vocab mapping, clarification questions | SPEC 4.1 | `backend/app/agents/clinical_text_clarifier.py` | `backend/tests/unit/test_clinical_text_clarifier.py` | NOT_STARTED |
+| **AGT-2** | Symptom RAG Analyzer: build queries, Qdrant vector search, top-k retrieval, deduplication, insufficient signal | SPEC 4.2 | `backend/app/agents/symptom_rag_analyzer.py` | `backend/tests/unit/test_symptom_rag_analyzer.py` | NOT_STARTED |
+| **AGT-3** | Evidence-Based Scanner: PubMed ESearch/EFetch, evidence hierarchy weighting, offline mode, rate limiting, sequential execution on RAG gaps | SPEC 4.3, App A2 | `backend/app/agents/evidence_based_scanner.py` | `backend/tests/unit/test_evidence_based_scanner.py` | NOT_STARTED |
+| **AGT-4** | Clinical Data Fusion: multi-source evidence fusion, consistency check, candidate claims, forbidden phrasing lint, approved confidence weighting | SPEC 4.4, App A1 | `backend/app/agents/clinical_data_fusion.py` | `backend/tests/unit/test_clinical_data_fusion.py` | NOT_STARTED |
+| **AGT-5** | Adaptive Optimizer: deterministic routing, query reformulation hints, max 3 iterations, stagnation guard, budget reached handling | SPEC 4.5, App A3 | `backend/app/agents/adaptive_optimizer.py` | `backend/tests/unit/test_adaptive_optimizer.py` | NOT_STARTED |
+| **EXT-A** | Claim Verification Agent: deterministic entity/number checks, offset-level span entailment, contradiction scanning | SPEC 5.1 | `backend/app/agents/claim_verification_agent.py` | `backend/tests/unit/test_claim_verification_agent.py` | NOT_STARTED |
+| **EXT-B** | Explicit Abstention & Safety Gate: 6 gate rules, 10 reason codes, pure evaluate_gate function, unverified redaction, budget exhaustion handling | SPEC 3, 5.2, App A3 | `backend/app/safety/abstention.py` | `backend/tests/unit/test_safety_gate.py` | NOT_STARTED |
+| **EXT-C** | Evidence-Level Provenance & Audit: relational provenance edges, immutable audit events, complete provenance check | SPEC 5.3 | `backend/app/provenance/provenance_tracker.py` | `backend/tests/unit/test_provenance.py` | NOT_STARTED |
+| **EXT-D** | Human-in-the-Loop Review: 8-state machine, review actions, clinician notes, RBAC authorization | SPEC 5.4 | `backend/app/orchestration/states.py` | `backend/tests/unit/test_state_machine.py` | NOT_STARTED |
+| **RET-1** | Qdrant Vector Collection: managed collections `evidence_<model_slug>_v<n>`, cosine distance, payload storage | SPEC 2, 6 | `backend/app/retrieval/qdrant_client.py` | `backend/tests/integration/test_qdrant_retrieval.py` | NOT_STARTED |
+| **RET-2** | Biomedical Embeddings: SentenceTransformer wrapper with NeuML/pubmedbert-base-embeddings | SPEC 2, 4.2 | `backend/app/retrieval/embedding_service.py` | `backend/tests/unit/test_embedding_service.py` | NOT_STARTED |
+| **RET-3** | Evidence Deduplication: deduplication by chunk ID and text hash, score preservation | SPEC 4.2 | `backend/app/retrieval/deduplication.py` | `backend/tests/unit/test_deduplication.py` | NOT_STARTED |
+| **RET-4** | Retrieval Query Generation: structured symptom query synthesis and expansion | SPEC 4.2 | `backend/app/retrieval/query_builder.py` | `backend/tests/unit/test_query_builder.py` | NOT_STARTED |
+| **RET-5** | Insufficient Signal: flag empty corpus or low-similarity retrieval with reason code | SPEC 4.2 | `backend/app/retrieval/retrieval_guard.py` | `backend/tests/unit/test_retrieval_guard.py` | NOT_STARTED |
+| **RET-6** | NCBI E-utilities Client: HTTPS ESearch and EFetch with backoff, jitter, and rate limiting | SPEC 2, 4.3 | `backend/app/evidence_sources/ncbi_client.py` | `backend/tests/unit/test_ncbi_client.py` | NOT_STARTED |
+| **RET-7** | Offline Mode Scanner: support EXTERNAL_MODE=offline returning SKIPPED_OFFLINE | SPEC 2, 4.3 | `backend/app/evidence_sources/ncbi_client.py` | `backend/tests/unit/test_ncbi_offline.py` | NOT_STARTED |
+| **API-1** | Health & Dependency Endpoints: GET /health and GET /health/dependencies (no secrets exposed) | SPEC 7 | `backend/app/api/endpoints/health.py` | `backend/tests/integration/test_api_health.py` | NOT_STARTED |
+| **API-2** | Auth & User Management: POST /auth/login (JWT bearer, argon2) and GET/POST /users | SPEC 2, 7 | `backend/app/api/endpoints/auth.py` | `backend/tests/integration/test_api_auth.py` | NOT_STARTED |
+| **API-3** | Clinical Case Endpoints: POST /cases, GET /cases, GET /cases/{id} | SPEC 7 | `backend/app/api/endpoints/cases.py` | `backend/tests/integration/test_api_cases.py` | NOT_STARTED |
+| **API-4** | Workflow Execution Endpoints: POST /cases/{id}/analyze (idempotent), GET /executions/{id}, /executions/{id}/agents | SPEC 7 | `backend/app/api/endpoints/executions.py` | `backend/tests/integration/test_api_executions.py` | NOT_STARTED |
+| **API-5** | Reports & Claims Endpoints: GET /cases/{id}/report, /reports, GET /reports/{version_id}/claims | SPEC 7 | `backend/app/api/endpoints/reports.py` | `backend/tests/integration/test_api_reports.py` | NOT_STARTED |
+| **API-6** | Evidence & Provenance Endpoints: GET /evidence/{id}, GET /claims/{id}/provenance | SPEC 7 | `backend/app/api/endpoints/evidence.py` | `backend/tests/integration/test_api_evidence.py` | NOT_STARTED |
+| **API-7** | Abstention Endpoint: GET /cases/{id}/abstention | SPEC 7 | `backend/app/api/endpoints/abstention.py` | `backend/tests/integration/test_api_abstention.py` | NOT_STARTED |
+| **API-8** | HITL Review Endpoints: POST /cases/{id}/clarifications, /refresh-evidence, /revisions, /reviews | SPEC 7 | `backend/app/api/endpoints/reviews.py` | `backend/tests/integration/test_api_reviews.py` | NOT_STARTED |
+| **API-9** | Audit Trail Endpoint: GET /cases/{id}/audit | SPEC 7 | `backend/app/api/endpoints/audit.py` | `backend/tests/integration/test_api_audit.py` | NOT_STARTED |
+| **API-10**| Evaluation Endpoints: POST /evaluations, GET /evaluations, GET /evaluations/{id} | SPEC 7 | `backend/app/api/endpoints/evaluations.py` | `backend/tests/integration/test_api_evaluations.py` | NOT_STARTED |
+| **UI-1**  | Frontend Dashboard: overview of recent cases, executions, system status | SPEC 7 | `frontend/src/pages/DashboardPage.tsx` | `frontend/tests/DashboardPage.test.tsx` | NOT_STARTED |
+| **UI-2**  | Case Submission View: patient input form, urgency alerts, structured findings preview | SPEC 7 | `frontend/src/pages/CaseSubmissionPage.tsx` | `frontend/tests/CaseSubmissionPage.test.tsx` | NOT_STARTED |
+| **UI-3**  | Analysis Workflow View: live polling of execution status, duration, per-agent records | SPEC 7 | `frontend/src/pages/AnalysisWorkflowPage.tsx` | `frontend/tests/AnalysisWorkflowPage.test.tsx` | NOT_STARTED |
+| **UI-4**  | Explainable Report View: 10 structured sections, claim evidence explorer, verification tags | SPEC 7 | `frontend/src/pages/ExplainableReportPage.tsx` | `frontend/tests/ExplainableReportPage.test.tsx` | NOT_STARTED |
+| **UI-5**  | Evidence Explorer View: inspect retrieved passages, source metadata, publication dates | SPEC 7 | `frontend/src/pages/EvidenceExplorerPage.tsx` | `frontend/tests/EvidenceExplorerPage.test.tsx` | NOT_STARTED |
+| **UI-6**  | Human Review View: review actions, clinician notes, immutable revision trail | SPEC 7 | `frontend/src/pages/HumanReviewPage.tsx` | `frontend/tests/HumanReviewPage.test.tsx` | NOT_STARTED |
+| **UI-7**  | Evaluation Dashboard View: read saved benchmark JSON runs, display metrics | SPEC 7 | `frontend/src/pages/EvaluationDashboardPage.tsx` | `frontend/tests/EvaluationDashboardPage.test.tsx` | NOT_STARTED |
+| **UI-8**  | UI Guardrails: persistent non-device banner, distinct content types, WCAG AA contrast | SPEC 7 | `frontend/src/components/ResearchBanner.tsx` | `frontend/tests/ResearchBanner.test.tsx` | NOT_STARTED |
+| **DB-1**  | Relational DB Schema: PostgreSQL 16 schema, Alembic migrations, foreign keys | SPEC 6 | `backend/app/persistence/models.py` | `backend/tests/integration/test_database_migrations.py` | NOT_STARTED |
+| **DB-2**  | Documents & Passages: unique (source, source_id) and unique ev: evidence_id | SPEC 6 | `backend/app/persistence/document_repository.py` | `backend/tests/integration/test_document_repository.py` | NOT_STARTED |
+| **DB-3**  | Execution Persistence: workflow and agent execution state records, INTERRUPTED handling | SPEC 2, 6 | `backend/app/persistence/execution_repository.py` | `backend/tests/integration/test_execution_repository.py` | NOT_STARTED |
+| **DB-4**  | Provenance Persistence: relational graph edges with report versioning | SPEC 5.3, 6 | `backend/app/persistence/provenance_repository.py` | `backend/tests/integration/test_provenance_repository.py` | NOT_STARTED |
+| **DB-5**  | Append-Only Audit: immutable audit trail with no update or delete methods | SPEC 5.3, 6 | `backend/app/persistence/audit_repository.py` | `backend/tests/unit/test_audit_repository.py` | NOT_STARTED |
+| **DB-6**  | Restart Persistence: data survives application and database restarts | SPEC 6 | `backend/app/persistence/database.py` | `backend/tests/integration/test_restart_persistence.py` | NOT_STARTED |
+| **SAF-1** | Clinical Safety Invariant: no autonomous diagnosis, prescriptions, or dosing orders | SPEC 1, R11 | `backend/app/safety/clinical_invariants.py` | `backend/tests/unit/test_clinical_invariants.py` | NOT_STARTED |
+| **SAF-2** | Prompt Injection Defense: delimited untrusted evidence blocks, no executable LLM code | SPEC 8 | `backend/app/safety/prompt_guards.py` | `backend/tests/unit/test_prompt_injection.py` | NOT_STARTED |
+| **SAF-3** | Privacy & Log Redaction: JSON logs with IDs and lengths only, never patient free text | SPEC 2, 8 | `backend/app/core/logging_config.py` | `backend/tests/unit/test_logging_privacy.py` | NOT_STARTED |
+| **SAF-4** | Urgent Presentation Matching: safety/urgent_rules.yaml pre-submission check | SPEC 8 | `backend/app/safety/urgency_checker.py` | `backend/tests/unit/test_urgency_checker.py` | NOT_STARTED |
+| **SAF-5** | Forbidden Language Linter: safety/forbidden_phrases.py regex lint failing imperative dosing | SPEC 4.4, 8 | `backend/app/safety/forbidden_phrases.py` | `backend/tests/unit/test_forbidden_phrases.py` | NOT_STARTED |
+| **EVL-1** | Evaluation Harness: benchmark_mode flag, offline execution, run JSON output | SPEC 9.8, 10 | `backend/app/evaluation/evaluation_harness.py` | `backend/tests/unit/test_evaluation_harness.py` | NOT_STARTED |
+| **EVL-2** | BioASQ Metric Scorers: factoid, yesno, list, summary, grounding metrics | SPEC 9.9 | `backend/app/evaluation/bioasq_scoring.py` | `backend/tests/unit/test_bioasq_scoring.py` | NOT_STARTED |
+| **EVL-3** | Deterministic Evaluation Splits: 20% dev, 80% eval, seed 42, NON_OFFICIAL_SPLIT | SPEC 9.6 | `backend/app/evaluation/dataset_split.py` | `backend/tests/unit/test_dataset_split.py` | NOT_STARTED |
+| **EVL-4** | System Ablations: 5 standard ablation configurations on identical records | SPEC 10 | `backend/app/evaluation/ablation_runner.py` | `backend/tests/unit/test_ablation_runner.py` | NOT_STARTED |
+| **EVL-5** | Data Leakage Prevention: assert gold answers/snippets never enter queries or prompts | SPEC 9.7 | `backend/app/evaluation/leakage_guard.py` | `backend/tests/unit/test_data_leakage.py` | NOT_STARTED |
+| **DAT-1** | Dataset Manifest & Integrity: checksum, row counts, null rates in datasets/MANIFEST.yaml | SPEC 9.11 | `scripts/generate_manifest.py` | `scripts/audit_datasets_comprehensive.py` | DONE |
+| **DAT-2** | Dataset PII Scanning: scan texts for patient PII and classify author contact emails | SPEC 9.3, 9.11| `scripts/check_dataset_pii.py` | `scripts/check_dataset_pii.py` | DONE |
+| **DAT-3** | BioASQ Corpus Verification: 75,919 rows, columns, snippet length, PMID extraction verified | SPEC 9.1, 9.3 | `scripts/audit_datasets_comprehensive.py` | `scripts/audit_datasets_comprehensive.py` | DONE |
+| **DAT-4** | BioASQ Questions Validation: 5,729 rows, types, exact_answer shapes, 0 parse errors verified | SPEC 9.1, 9.4 | `scripts/audit_datasets_comprehensive.py` | `scripts/audit_datasets_comprehensive.py` | DONE |
+| **DAT-5** | Corpus-to-Questions Linkage: 5,665 matching IDs, 64 missing questions, snippet matching | SPEC 9.5 | `scripts/audit_datasets_comprehensive.py` | `scripts/audit_datasets_comprehensive.py` | DONE |
+| **DAT-6** | Smoke Candidate Verification: 30 candidates verified against bioasq_normalized.csv | SPEC 9.1, 9.5 | `scripts/audit_datasets_comprehensive.py` | `scripts/audit_datasets_comprehensive.py` | DONE |
+| **DAT-7** | Disallowed File Cataloging: retrieval_eval_gold (0/209), dedup, faiss artifacts quarantined | SPEC 9.2 | `scripts/audit_datasets_comprehensive.py` | `scripts/audit_datasets_comprehensive.py` | DONE |
+| **DAT-8** | Unspecified Dataset Audit: MedQA, MedBullets, PubMedQA, raw BioASQ audited & change proposals (deferred per App A4) | User Task, App A4| `scripts/audit_other_datasets.py` | `scripts/audit_other_datasets.py` | DONE |
