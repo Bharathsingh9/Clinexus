@@ -12,6 +12,8 @@ The following items can only be supplied or confirmed by a human reviewer. Until
 | **4** | **Derived Relevance Labels Approval (SPEC 9.5)** | Corpus-to-question sample_id relevance mapping cannot be treated as official ground truth. | Confirm that linking corpus rows by `sample_id` is approved for benchmark retrieval scoring. |
 | **5** | **Evaluation Protocol Confirmation** | Split and scoring rules remain unconfirmed. | Confirm: (a) factoid gold-answer interpretation (any string in gold list is correct), (b) 20% dev / 80% eval split with seed 42, (c) default sample size $N=200$. |
 | **6** | **NCBI E-utilities Credentials (Optional)** | Live PubMed scanning defaults to rate-limited mode (3 req/s) or `EXTERNAL_MODE=offline`. | Supply `NCBI_EMAIL` and `NCBI_API_KEY` in `.env` if higher rate limits (10 req/s) are desired. |
+| **7** | **Node.js Environment (Phase 6)** | Node runtime is `v24.18.0`. SPEC 2 calls for Node for frontend in Phase 6. Not blocking in Phase 1; recorded for frontend setup. | Verify Node compatibility during Phase 6 setup. |
+| **8** | **Docker Container Runtime in CLI Session** | **RESOLVED IN PHASE 1 EXIT GATE**: Docker Desktop 29.9.2 and Docker Compose v5.6.1 operational. PostgreSQL 16 and Qdrant containers running and healthy. Live Alembic migrations and container integration tests passed. | Verified. |
 
 ---
 
@@ -109,3 +111,15 @@ This plan details the exact files to create or modify across each phase of the C
   - `docs/evaluation_protocol.md`: Measured benchmark metrics report.
   - `docs/known_gaps.md`: Final catalog of all deferred or unconfirmed items.
 - **Files to Modify**: `docs/requirements_traceability.md`.
+
+---
+
+## 3. Environment Setup (2026-10-26)
+
+- **Conda Environment**: `clinexus`
+- **Interpreter Path**: `C:\Users\karth\.conda\envs\clinexus\python.exe`
+- **Python Version**: `Python 3.11.17`
+- **Docker Status**: `working` (Docker Desktop 29.9.2, Docker Compose v5.6.1, WSL2 backend running, `docker run --rm hello-world` verified)
+- **Remaining Blockers**:
+  - Human review confirmations detailed in Section 1 (LLM API keys, BioASQ license confirmation, derived relevance labels, evaluation protocol).
+

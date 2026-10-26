@@ -20,3 +20,12 @@ Thumbs.db
 # Large binary files (embeddings, indexes)
 *.npy
 *.index
+
+# Phase 1 Standard Additions
+node_modules/
+.pytest_cache/
+*.log
+qdrant_storage/
+dist/
+build/
+*.egg-info/
