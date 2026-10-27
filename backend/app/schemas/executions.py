@@ -33,9 +33,10 @@ class AgentStatusEnum(str, Enum):
 class AgentExecutionRecord(BaseModel):
     """Execution lifecycle record for an individual agent run."""
     record_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    execution_id: str = Field(...)
+    execution_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     agent_name: str = Field(..., min_length=1)
     status: AgentStatusEnum = Field(default=AgentStatusEnum.RUNNING)
+    error_code: Optional[str] = Field(None, description="Standard error code e.g. LLM_UNAVAILABLE, INVALID_LLM_OUTPUT")
     started_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     completed_at: Optional[datetime] = Field(None)
     duration_ms: Optional[int] = Field(None, ge=0)

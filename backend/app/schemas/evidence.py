@@ -9,6 +9,7 @@ from enum import Enum
 from typing import Dict, List, Optional
 import uuid
 from pydantic import BaseModel, ConfigDict, Field, field_validator
+from backend.app.schemas.clinical_case import CandidateHypothesis
 from backend.app.schemas.ids import validate_evidence_id
 
 
@@ -24,6 +25,7 @@ class QueryStatusEnum(str, Enum):
     RATE_LIMITED = "RATE_LIMITED"
     MALFORMED = "MALFORMED"
     UNAVAILABLE = "UNAVAILABLE"
+    SKIPPED_OFFLINE = "SKIPPED_OFFLINE"
 
 
 class RetrievalQuery(BaseModel):
@@ -97,6 +99,10 @@ class RetrievedPassageResult(BaseModel):
     query_id: str = Field(...)
     evidence_level: Optional[str] = Field(default="UNKNOWN")
     text: str = Field(..., min_length=1)
+    duplicate_evidence_ids: List[str] = Field(
+        default_factory=list,
+        description="All member evidence IDs in this deduplicated group, including the primary evidence ID"
+    )
     schema_version: str = Field(default="1.0")
 
     model_config = ConfigDict(extra="forbid")
@@ -113,6 +119,10 @@ class RetrievedEvidenceSet(BaseModel):
     """Output contract for Symptom RAG Analyzer (AGT-2)."""
     query_id: str = Field(...)
     results: List[RetrievedPassageResult] = Field(default_factory=list)
+    candidate_hypotheses: List[CandidateHypothesis] = Field(
+        default_factory=list,
+        description="Candidate differential considerations grounded in retrieved passages (App A5)"
+    )
     insufficient: bool = Field(default=False)
     reason_code: Optional[str] = Field(None, description="VECTOR_DB_UNAVAILABLE | EMPTY_CORPUS | LOW_SIMILARITY")
     retrieval_summary: str = Field(default="", description="Summary where every sentence cites evidence IDs")

@@ -1,0 +1,207 @@
+[
+  {
+    "surface_form": "fever",
+    "normalized_term": "pyrexia",
+    "vocabulary": "LOCAL"
+  },
+  {
+    "surface_form": "high fever",
+    "normalized_term": "pyrexia",
+    "vocabulary": "LOCAL"
+  },
+  {
+    "surface_form": "febrile",
+    "normalized_term": "pyrexia",
+    "vocabulary": "LOCAL"
+  },
+  {
+    "surface_form": "shortness of breath",
+    "normalized_term": "dyspnea",
+    "vocabulary": "LOCAL"
+  },
+  {
+    "surface_form": "dyspnea",
+    "normalized_term": "dyspnea",
+    "vocabulary": "LOCAL"
+  },
+  {
+    "surface_form": "difficulty breathing",
+    "normalized_term": "dyspnea",
+    "vocabulary": "LOCAL"
+  },
+  {
+    "surface_form": "breathlessness",
+    "normalized_term": "dyspnea",
+    "vocabulary": "LOCAL"
+  },
+  {
+    "surface_form": "headache",
+    "normalized_term": "cephalea",
+    "vocabulary": "LOCAL"
+  },
+  {
+    "surface_form": "cephalalgia",
+    "normalized_term": "cephalea",
+    "vocabulary": "LOCAL"
+  },
+  {
+    "surface_form": "head pain",
+    "normalized_term": "cephalea",
+    "vocabulary": "LOCAL"
+  },
+  {
+    "surface_form": "chest pain",
+    "normalized_term": "chest_pain",
+    "vocabulary": "LOCAL"
+  },
+  {
+    "surface_form": "substernal chest pain",
+    "normalized_term": "chest_pain",
+    "vocabulary": "LOCAL"
+  },
+  {
+    "surface_form": "angina",
+    "normalized_term": "chest_pain",
+    "vocabulary": "LOCAL"
+  },
+  {
+    "surface_form": "cough",
+    "normalized_term": "cough",
+    "vocabulary": "LOCAL"
+  },
+  {
+    "surface_form": "productive cough",
+    "normalized_term": "productive_cough",
+    "vocabulary": "LOCAL"
+  },
+  {
+    "surface_form": "dry cough",
+    "normalized_term": "dry_cough",
+    "vocabulary": "LOCAL"
+  },
+  {
+    "surface_form": "nausea",
+    "normalized_term": "nausea",
+    "vocabulary": "LOCAL"
+  },
+  {
+    "surface_form": "vomiting",
+    "normalized_term": "emesis",
+    "vocabulary": "LOCAL"
+  },
+  {
+    "surface_form": "emesis",
+    "normalized_term": "emesis",
+    "vocabulary": "LOCAL"
+  },
+  {
+    "surface_form": "fatigue",
+    "normalized_term": "fatigue",
+    "vocabulary": "LOCAL"
+  },
+  {
+    "surface_form": "malaise",
+    "normalized_term": "fatigue",
+    "vocabulary": "LOCAL"
+  },
+  {
+    "surface_form": "tiredness",
+    "normalized_term": "fatigue",
+    "vocabulary": "LOCAL"
+  },
+  {
+    "surface_form": "arthralgia",
+    "normalized_term": "arthralgia",
+    "vocabulary": "LOCAL"
+  },
+  {
+    "surface_form": "joint pain",
+    "normalized_term": "arthralgia",
+    "vocabulary": "LOCAL"
+  },
+  {
+    "surface_form": "rash",
+    "normalized_term": "exanthem",
+    "vocabulary": "LOCAL"
+  },
+  {
+    "surface_form": "skin rash",
+    "normalized_term": "exanthem",
+    "vocabulary": "LOCAL"
+  },
+  {
+    "surface_form": "dizziness",
+    "normalized_term": "dizziness",
+    "vocabulary": "LOCAL"
+  },
+  {
+    "surface_form": "lightheadedness",
+    "normalized_term": "dizziness",
+    "vocabulary": "LOCAL"
+  },
+  {
+    "surface_form": "vertigo",
+    "normalized_term": "vertigo",
+    "vocabulary": "LOCAL"
+  },
+  {
+    "surface_form": "abdominal pain",
+    "normalized_term": "abdominal_pain",
+    "vocabulary": "LOCAL"
+  },
+  {
+    "surface_form": "stomach ache",
+    "normalized_term": "abdominal_pain",
+    "vocabulary": "LOCAL"
+  },
+  {
+    "surface_form": "diarrhea",
+    "normalized_term": "diarrhea",
+    "vocabulary": "LOCAL"
+  },
+  {
+    "surface_form": "chills",
+    "normalized_term": "chills",
+    "vocabulary": "LOCAL"
+  },
+  {
+    "surface_form": "night sweats",
+    "normalized_term": "hyperhidrosis_nocturna",
+    "vocabulary": "LOCAL"
+  },
+  {
+    "surface_form": "sweating",
+    "normalized_term": "diaphoresis",
+    "vocabulary": "LOCAL"
+  },
+  {
+    "surface_form": "palpitations",
+    "normalized_term": "palpitations",
+    "vocabulary": "LOCAL"
+  },
+  {
+    "surface_form": "sore throat",
+    "normalized_term": "pharyngitis",
+    "vocabulary": "LOCAL"
+  },
+  {
+    "surface_form": "hemoptysis",
+    "normalized_term": "hemoptysis",
+    "vocabulary": "LOCAL"
+  },
+  {
+    "surface_form": "coughing up blood",
+    "normalized_term": "hemoptysis",
+    "vocabulary": "LOCAL"
+  },
+  {
+    "surface_form": "syncope",
+    "normalized_term": "syncope",
+    "vocabulary": "LOCAL"
+  },
+  {
+    "surface_form": "fainting",
+    "normalized_term": "syncope",
+    "vocabulary": "LOCAL"
+  }
+]

@@ -62,6 +62,18 @@ class Settings(BaseSettings):
     CONFIDENCE_THRESHOLD: float = Field(default=0.65, ge=0.0, le=1.0)
     RETRIEVAL_TOP_K: int = Field(default=10, ge=1)
     RETRIEVAL_MIN_SCORE: float = Field(default=0.30, ge=-1.0, le=1.0)
+    RETRIEVAL_SCORE_FLOOR: float = Field(
+        default=0.30,
+        ge=-1.0,
+        le=1.0,
+        description="[ENGINEERING-DECISION: UNCALIBRATED] Initial uncalibrated lower bound for retrieval strength normalization, to be recalibrated on dev split in Phase 5"
+    )
+    RETRIEVAL_SCORE_CEILING: float = Field(
+        default=0.90,
+        ge=-1.0,
+        le=1.0,
+        description="[ENGINEERING-DECISION: UNCALIBRATED] Initial uncalibrated upper bound for retrieval strength normalization, to be recalibrated on dev split in Phase 5"
+    )
     CHUNK_TOKENS: int = Field(default=300, ge=50)
     CHUNK_OVERLAP_TOKENS: int = Field(default=50, ge=0)
     EXTERNAL_MAX_RECORDS_PER_QUERY: int = Field(default=10, ge=1)
@@ -144,6 +156,12 @@ class Settings(BaseSettings):
             self.LLM_MODEL_OPTIMIZER = base
         if not self.VERIFIER_MODEL:
             self.VERIFIER_MODEL = base
+
+        if self.RETRIEVAL_SCORE_FLOOR >= self.RETRIEVAL_SCORE_CEILING:
+            raise ValueError(
+                f"RETRIEVAL_SCORE_FLOOR ({self.RETRIEVAL_SCORE_FLOOR}) must be strictly less than "
+                f"RETRIEVAL_SCORE_CEILING ({self.RETRIEVAL_SCORE_CEILING})"
+            )
         return self
 
 

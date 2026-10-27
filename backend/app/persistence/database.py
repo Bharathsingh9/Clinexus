@@ -19,6 +19,7 @@ sync_engine = create_engine(
     pool_pre_ping=True,
 )
 SyncSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=sync_engine)
+SessionLocal = SyncSessionLocal
 
 # Async engine for FastAPI application runtime
 async_engine = create_async_engine(

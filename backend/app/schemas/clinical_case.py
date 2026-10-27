@@ -34,6 +34,16 @@ class ClarificationStatusEnum(str, Enum):
     DISMISSED = "DISMISSED"
 
 
+class CaseSubmission(BaseModel):
+    """Raw clinical case submission from clinician or user."""
+    submission_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    raw_text: str = Field(..., min_length=1, description="Raw narrative text submitted for analysis")
+    submitted_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    schema_version: str = Field(default="1.0")
+
+    model_config = ConfigDict(extra="forbid")
+
+
 class SourceSpan(BaseModel):
     """Source text span representation."""
     start: int = Field(..., ge=0, description="Start offset into original clinical text")

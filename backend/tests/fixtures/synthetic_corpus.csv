@@ -1,0 +1,7 @@
+evidence_id,snippet_text,pubmed_url,section,sample_id,question_type
+SYNTH001,[SYNTHETIC] Fever and persistent dry cough are characteristic symptoms of community-acquired respiratory infection in adults.,http://www.ncbi.nlm.nih.gov/pubmed/111001,abstract,SAMP001,factoid
+SYNTH002,[SYNTHETIC] Dyspnea on exertion with substernal chest discomfort requires immediate electrocardiogram assessment.,https://pubmed.ncbi.nlm.nih.gov/111002/,abstract,SAMP001,factoid
+SYNTH003,[SYNTHETIC] Short rash.,111003,abstract,SAMP002,yesno
+SYNTH004,[SYNTHETIC] This is a longer biomedical passage containing substantial clinical terminology designed to test whether the embedding tokenizer and chunker correctly segment passages that exceed the real maximum token length threshold of 100 tokens as verified empirically for the BioBERT model architecture. It discusses acute pulmonary exacerbations and systemic inflammatory markers in detail with comprehensive laboratory evaluations and physiological parameters monitored continuously across consecutive hospitalization days.,http://www.ncbi.nlm.nih.gov/pubmed/111004,abstract,SAMP003,summary
+SYNTH005,[SYNTHETIC] Fever and persistent dry cough are characteristic symptoms of community-acquired respiratory infection in adults.,http://www.ncbi.nlm.nih.gov/pubmed/111001,abstract,SAMP004,factoid
+SYNTH006,[SYNTHETIC] Severe headache accompanied by photophobia and neck stiffness indicates potential acute meningeal irritation.,http://www.ncbi.nlm.nih.gov/pubmed/111005,abstract,SAMP005,list

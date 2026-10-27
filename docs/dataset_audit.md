@@ -39,6 +39,7 @@ Every number from SPEC Section 9 was verified against observed file content. Whe
 | **Author Contact Emails**| 24 snippets | **25 snippets** (32 email instances across 24 distinct texts) | Difference noted: 25 snippets observed |
 | **Phone-like Patterns** | 0 found | **0 found** | **EXACT MATCH** |
 | **Patient Identifiers** | 0 found | **0 found** | **EXACT MATCH** |
+| **Phase 5 Expected Passages** | N/A | **85,139 passages** | Approved in Stage A review: effective chunk 98 tokens, overlap 20 tokens; 6,249 rows over limit chunked into 85,139 total passages |
 
 ---
 
