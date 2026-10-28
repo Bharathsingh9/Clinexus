@@ -11,6 +11,7 @@ import uuid
 from pydantic import BaseModel, ConfigDict, Field
 from backend.app.schemas.clinical_case import (
     CandidateHypothesis,
+    CaseSubmission,
     ClarificationRequest,
     ClinicalCase,
 )
@@ -40,6 +41,8 @@ class AgentExecutionRecord(BaseModel):
     started_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     completed_at: Optional[datetime] = Field(None)
     duration_ms: Optional[int] = Field(None, ge=0)
+    input_hash: Optional[str] = Field(None, description="SHA-256 hash of input data")
+    output_hash: Optional[str] = Field(None, description="SHA-256 hash of output data")
     input_summary: str = Field(..., description="Summary of inputs (no patient PII)")
     output_summary: Optional[str] = Field(None, description="Summary of outputs")
     error_message: Optional[str] = Field(None)
@@ -96,6 +99,8 @@ class WorkflowState(BaseModel):
     """Typed state for the multi-agent LangGraph workflow."""
     execution_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     case_id: str = Field(...)
+    submission: Optional[CaseSubmission] = Field(None)
+    submission_payload: Optional[Dict[str, Any]] = Field(None)
     case: Optional[ClinicalCase] = Field(None)
     clarification_needed: bool = Field(default=False)
     blocking_clarifications: List[ClarificationRequest] = Field(default_factory=list)
@@ -110,6 +115,16 @@ class WorkflowState(BaseModel):
     audit_trail: List[AuditEvent] = Field(default_factory=list)
     current_node: str = Field(default="validate_case")
     is_benchmark: bool = Field(default=False)
+    workflow_status: str = Field(default="RUNNING")
+    error_code: Optional[str] = Field(None)
+    error_message: Optional[str] = Field(None)
+    agent_records: List[AgentExecutionRecord] = Field(default_factory=list)
+    gap_hints: List[str] = Field(default_factory=list)
+    scanner_degraded: bool = Field(default=False)
+    final_result: Optional[WorkflowResult] = Field(None)
+    report_history: List[CandidateClinicalReport] = Field(default_factory=list)
+    current_iteration: int = Field(default=0, ge=0, le=3)
+    iteration_cap_reached: bool = Field(default=False)
     schema_version: str = Field(default="1.0")
 
     model_config = ConfigDict(extra="forbid")

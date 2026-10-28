@@ -162,6 +162,21 @@ class Settings(BaseSettings):
                 f"RETRIEVAL_SCORE_FLOOR ({self.RETRIEVAL_SCORE_FLOOR}) must be strictly less than "
                 f"RETRIEVAL_SCORE_CEILING ({self.RETRIEVAL_SCORE_CEILING})"
             )
+
+        total_weight = (
+            self.CONF_WEIGHT_CLAIM_SUPPORT
+            + self.CONF_WEIGHT_RETRIEVAL_STRENGTH
+            + self.CONF_WEIGHT_SOURCE_AVAILABILITY
+            + self.CONF_WEIGHT_INFO_COMPLETENESS
+        )
+        if abs(total_weight - 1.0) > 1e-6:
+            raise ValueError(
+                f"Full confidence weights (CONF_WEIGHT_*) must sum to 1.0 within 1e-6; got {total_weight:.8f} "
+                f"(claim_support={self.CONF_WEIGHT_CLAIM_SUPPORT}, "
+                f"retrieval_strength={self.CONF_WEIGHT_RETRIEVAL_STRENGTH}, "
+                f"source_availability={self.CONF_WEIGHT_SOURCE_AVAILABILITY}, "
+                f"info_completeness={self.CONF_WEIGHT_INFO_COMPLETENESS})"
+            )
         return self
 
 

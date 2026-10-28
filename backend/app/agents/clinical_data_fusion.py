@@ -39,7 +39,7 @@ from backend.app.core.llm_provider import LLMProvider
 from backend.app.safety.confidence import compute_confidence
 from backend.app.safety.forbidden_phrases import lint_forbidden_phrases
 from backend.app.schemas.clinical_case import ClinicalCase
-from backend.app.schemas.evidence import ExternalEvidenceSet, RetrievedEvidenceSet
+from backend.app.schemas.evidence import ExternalEvidenceSet, QueryStatusEnum, RetrievedEvidenceSet
 from backend.app.schemas.executions import AgentExecutionRecord, AgentStatusEnum
 from backend.app.schemas.reports import (
     CandidateClaim,

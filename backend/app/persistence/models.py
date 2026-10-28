@@ -136,6 +136,9 @@ class AgentExecution(Base):
     input_summary = Column(Text, nullable=False)
     output_summary = Column(Text, nullable=True)
     error_message = Column(Text, nullable=True)
+    error_code = Column(String(50), nullable=True)
+    input_hash = Column(String(64), nullable=True)
+    output_hash = Column(String(64), nullable=True)
 
     workflow_execution = relationship("WorkflowExecution", back_populates="agent_executions")
 

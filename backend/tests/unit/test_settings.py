@@ -94,3 +94,34 @@ def test_secrets_have_no_defaults_and_fail_when_unset(monkeypatch):
     missing_fields = {e["loc"][0] for e in errors if e.get("type") == "missing"}
     assert "SECRET_KEY" in missing_fields, "SECRET_KEY must be a required field with no default"
     assert "ADMIN_PASSWORD" in missing_fields, "ADMIN_PASSWORD must be a required field with no default"
+
+
+def test_confidence_weights_sum_validation():
+    """Verify CONF_WEIGHT_* sum must equal 1.0 within 1e-6 (SPEC Section 2, Step 0d)."""
+    # Default weights sum to 1.0 (0.50 + 0.20 + 0.15 + 0.15 = 1.00)
+    cfg = Settings()
+    total = (
+        cfg.CONF_WEIGHT_CLAIM_SUPPORT
+        + cfg.CONF_WEIGHT_RETRIEVAL_STRENGTH
+        + cfg.CONF_WEIGHT_SOURCE_AVAILABILITY
+        + cfg.CONF_WEIGHT_INFO_COMPLETENESS
+    )
+    assert abs(total - 1.0) <= 1e-6
+
+    # Valid custom weights summing to 1.0 within 1e-6
+    custom_valid = Settings(
+        CONF_WEIGHT_CLAIM_SUPPORT=0.40,
+        CONF_WEIGHT_RETRIEVAL_STRENGTH=0.30,
+        CONF_WEIGHT_SOURCE_AVAILABILITY=0.15,
+        CONF_WEIGHT_INFO_COMPLETENESS=0.15,
+    )
+    assert custom_valid.CONF_WEIGHT_CLAIM_SUPPORT == 0.40
+
+    # Invalid weights summing to != 1.0 must fail validation
+    with pytest.raises(ValidationError, match="Full confidence weights .* must sum to 1.0 within 1e-6"):
+        Settings(
+            CONF_WEIGHT_CLAIM_SUPPORT=0.50,
+            CONF_WEIGHT_RETRIEVAL_STRENGTH=0.20,
+            CONF_WEIGHT_SOURCE_AVAILABILITY=0.15,
+            CONF_WEIGHT_INFO_COMPLETENESS=0.20,
+        )

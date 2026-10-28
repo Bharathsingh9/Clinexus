@@ -3,7 +3,7 @@
 Satisfies LLMProvider protocol under backend/tests/ (Rule R6).
 """
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 from pydantic import BaseModel
 from backend.app.core.llm_provider import LLMProvider
 
@@ -15,9 +15,13 @@ class FakeLLMProvider:
         self,
         default_text: str = "[SYNTHETIC] Test completion response",
         canned_json_responses: Optional[List[BaseModel]] = None,
+        prompt_mapping: Optional[Dict[str, str]] = None,
+        text_handler: Optional[Callable[[str, Optional[str]], str]] = None,
     ) -> None:
         self.default_text = default_text
         self.canned_json_responses: List[BaseModel] = canned_json_responses or []
+        self.prompt_mapping: Dict[str, str] = prompt_mapping or {}
+        self.text_handler = text_handler
         self.calls: List[Dict[str, Any]] = []
 
     async def generate_text(
@@ -36,6 +40,14 @@ class FakeLLMProvider:
             "temperature": temperature,
             "max_tokens": max_tokens,
         })
+        if self.text_handler is not None:
+            return self.text_handler(prompt, system_instruction)
+
+        combined = f"{system_instruction or ''}\n{prompt}"
+        for key, val in self.prompt_mapping.items():
+            if key in combined:
+                return val
+
         return self.default_text
 
     async def generate_json(

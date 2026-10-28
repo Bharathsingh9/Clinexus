@@ -20,7 +20,7 @@ from datetime import datetime, timezone
 import inspect
 import json
 import logging
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Set, Tuple, Union
 import uuid
 
 from backend.app.core.config import settings
@@ -93,9 +93,18 @@ class AdaptiveOptimizer:
         scanner_degraded: bool,
         unsupported_claims_count: int,
         abstention_reasons: Optional[List[str]],
+        non_supported_material_claims: Optional[Set[str]] = None,
+        non_supported_claims_history: Optional[List[Set[str]]] = None,
     ) -> Tuple[str, str]:
         """Deterministic rule-based routing of findings to operations (SPEC 4.5)."""
         # Rule 1: Stagnation guard (NO_PROGRESS rule per SPEC 4.5)
+        # Check non-SUPPORTED material claims set stagnation if provided (SPEC 4.5)
+        if non_supported_claims_history and len(non_supported_claims_history) >= 2:
+            prev_set1 = non_supported_claims_history[-1]
+            prev_set2 = non_supported_claims_history[-2]
+            if prev_set1 == prev_set2 and len(prev_set1) > 0:
+                return "STOP", "NO_PROGRESS: Two consecutive iterations left the set of non-SUPPORTED material claims unchanged."
+
         if len(iteration_history) >= 2:
             prev1 = iteration_history[-1]
             prev2 = iteration_history[-2]
@@ -105,20 +114,21 @@ class AdaptiveOptimizer:
 
         # Rule 2: Hard iteration cap (MAX_OPTIMIZER_ITERATIONS = 3)
         if iteration_number >= settings.MAX_OPTIMIZER_ITERATIONS:
-            return "STOP", "BUDGET_EXHAUSTED: Maximum optimizer iterations (3) reached."
+            return "STOP", f"BUDGET_EXHAUSTED: Maximum optimizer iterations ({settings.MAX_OPTIMIZER_ITERATIONS}) reached."
 
         # Rule 3: Blocking patient information missing
         if has_blocking_clarification:
             return "REQUEST_CLARIFICATION", "Unresolved blocking patient finding detected."
 
-        # Rule 4: No relevant evidence or empty retrieval
+        # Rule 4: External scanner degradation (SPEC 4.5: degraded scanner leads to one FETCH_EXTERNAL)
+        has_fetched_external = any(it.node_selected == "FETCH_EXTERNAL" for it in iteration_history)
+        if scanner_degraded and not has_fetched_external:
+            return "FETCH_EXTERNAL", "External literature scanner degraded; retrying literature fetch."
+
+        # Rule 5: No relevant evidence or empty retrieval
         reasons = abstention_reasons or []
         if "NO_RELEVANT_EVIDENCE" in reasons or "LOW_SIMILARITY" in reasons:
             return "REFINE_RETRIEVAL", "Insufficient local retrieval signal; refining query synthesis."
-
-        # Rule 5: External scanner failure or degradation
-        if scanner_degraded:
-            return "FETCH_EXTERNAL", "External literature scanner degraded; retrying literature fetch."
 
         # Rule 6: Unsupported material claims with existing evidence
         if unsupported_claims_count > 0:
@@ -141,6 +151,9 @@ class AdaptiveOptimizer:
         unsupported_claims_count: int = 0,
         abstention_reasons: Optional[List[str]] = None,
         execution_id: Optional[str] = None,
+        non_supported_material_claims: Optional[Set[str]] = None,
+        non_supported_claims_history: Optional[List[Set[str]]] = None,
+        gate_findings: Optional[Dict[str, Any]] = None,
     ) -> Union[OptimizationIteration, AgentExecutionRecord]:
         """Execute Agent 5 optimizer routing and return OptimizationIteration record."""
         # Invariant: No silent fallbacks. Unconfigured LLM provider returns FAILED(LLM_UNAVAILABLE).
@@ -168,6 +181,8 @@ class AdaptiveOptimizer:
             scanner_degraded=scanner_degraded,
             unsupported_claims_count=unsupported_claims_count,
             abstention_reasons=abstention_reasons,
+            non_supported_material_claims=non_supported_material_claims,
+            non_supported_claims_history=non_supported_claims_history,
         )
 
         # Step 2: LLM writes ONLY instruction text and query hints (SPEC 4.5)
