@@ -178,6 +178,21 @@ class ExecutionRepository:
             session.refresh(case_row)
             return case_row
 
+    def get_case(self, case_id: str) -> Optional[ClinicalCaseModel]:
+        """Retrieve a clinical case by ID."""
+        with self._session_scope() as session:
+            return session.get(ClinicalCaseModel, case_id)
+
+    def update_case_status(self, case_id: str, status: str) -> Optional[ClinicalCaseModel]:
+        """Update review state/status of a clinical case."""
+        with self._session_scope() as session:
+            case_row = session.get(ClinicalCaseModel, case_id)
+            if case_row:
+                case_row.status = status
+                session.commit()
+                session.refresh(case_row)
+            return case_row
+
     def save_case_findings(
         self,
         case_id: str,
@@ -469,9 +484,19 @@ class ExecutionRepository:
             session.add(report_row)
             session.flush()
 
+            seen_claim_ids = set()
             for c in claims:
+                claim_id_val = getattr(c, "claim_id", None)
+                if (
+                    not claim_id_val
+                    or claim_id_val in seen_claim_ids
+                    or session.get(CandidateClaimModel, claim_id_val) is not None
+                ):
+                    claim_id_val = str(uuid.uuid4())
+                seen_claim_ids.add(claim_id_val)
+
                 claim_row = CandidateClaimModel(
-                    id=str(uuid.uuid4()),
+                    id=claim_id_val,
                     report_version_id=report_row.id,
                     claim_text=c.claim_text,
                     section=c.section,

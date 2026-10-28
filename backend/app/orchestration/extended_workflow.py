@@ -85,6 +85,24 @@ from backend.app.schemas.reports import (
 
 logger = logging.getLogger(__name__)
 
+from sqlalchemy import func, select
+from backend.app.orchestration.states import (
+    CaseReviewState,
+    transition_case_state,
+)
+from backend.app.persistence.audit_repository import AuditRepository
+from backend.app.persistence.database import SessionLocal
+from backend.app.persistence.models import (
+    ClinicalCase as ClinicalCaseModel,
+    ReportVersion as ReportVersionModel,
+)
+from backend.app.provenance import (
+    assert_provenance_complete,
+    build_provenance_edges_from_workflow,
+    save_provenance_edges,
+)
+from backend.app.safety.urgent import evaluate_urgent_rules
+
 
 def compute_payload_hash(data: Any) -> str:
     """Compute deterministic SHA-256 hash of structured or text data."""
@@ -118,9 +136,11 @@ class ExtendedWorkflowOrchestrator:
         qdrant_wrapper: Optional[QdrantWrapper] = None,
         embedding_service: Optional[EmbeddingService] = None,
         collection_version: int = 1,
+        audit_repository: Optional[AuditRepository] = None,
     ):
         self.repository = repository or ExecutionRepository()
         self.embedding_service = embedding_service or EmbeddingService()
+        self.audit_repository = audit_repository or AuditRepository(SessionLocal())
 
         self.clarifier = clarifier or ClinicalTextClarifier(
             llm_provider=llm_provider,
@@ -536,6 +556,20 @@ class ExtendedWorkflowOrchestrator:
 
         if state.blocking_clarifications:
             logger.info("Blocking clarification questions detected (%d). Halting graph.", len(state.blocking_clarifications))
+            with SessionLocal() as session:
+                try:
+                    transition_case_state(
+                        session=session,
+                        case_id=state.case_id,
+                        target_state=CaseReviewState.EVIDENCE_REVIEW_REQUIRED,
+                        actor_id="system_orchestrator",
+                        actor_role="system",
+                        audit_repo=self.audit_repository,
+                        reason="Workflow halted: blocking clarification required",
+                    )
+                except Exception as t_err:
+                    logger.warning("Case transition to EVIDENCE_REVIEW_REQUIRED failed: %s", t_err)
+
             return {
                 "workflow_status": "AWAITING_CLARIFICATION",
                 "current_node": "clarification_check",
@@ -766,7 +800,14 @@ class ExtendedWorkflowOrchestrator:
             assert state.case is not None
             assert state.retrieved_evidence is not None
 
-            version_num = len(state.report_history) + 1
+            # Query max version in DB for this case so revisions produce new version numbers
+            with SessionLocal() as db_session:
+                stmt_max = select(func.max(ReportVersionModel.version_number)).where(
+                    ReportVersionModel.case_id == state.case_id
+                )
+                db_max = db_session.execute(stmt_max).scalar() or 0
+
+            version_num = max(len(state.report_history) + 1, db_max + 1)
             report = self.fusion.run(
                 case=state.case,
                 local_evidence=state.retrieved_evidence,
@@ -798,6 +839,7 @@ class ExtendedWorkflowOrchestrator:
                 confidence_score=report.confidence_score,
                 status=report.status.value,
                 claims=report.claims,
+                report_version_id=report.report_version_id,
             )
 
             out_hash = compute_payload_hash(report)
@@ -1023,7 +1065,10 @@ class ExtendedWorkflowOrchestrator:
         """Node 9a: Marks synthesis report READY_FOR_REVIEW upon passing all gate safety checks."""
         assert state.report is not None
         ready_report = state.report.model_copy(
-            update={"status": ReportStatusEnum.READY_FOR_REVIEW}
+            update={
+                "status": ReportStatusEnum.READY_FOR_REVIEW,
+                "urgent_banner": state.urgent_banner,
+            }
         )
 
         try:
@@ -1033,6 +1078,75 @@ class ExtendedWorkflowOrchestrator:
             )
         except Exception as err:
             logger.warning("Updating report version status failed: %s", err)
+
+        # Build provenance edges from real agent outputs
+        edges = build_provenance_edges_from_workflow(
+            report=ready_report,
+            case=state.case,
+            verifications=state.verifications,
+            retrieved_evidence=state.retrieved_evidence,
+            external_evidence=state.external_evidence,
+            iterations=state.iterations,
+            abstention=state.abstention,
+        )
+
+        # Assert provenance completeness: fails if any material claim has no edge (SPEC 5.3)
+        try:
+            assert_provenance_complete(ready_report, edges=edges)
+        except Exception as prov_err:
+            logger.error("Provenance completeness assertion failed at finalize: %s", prov_err)
+            # Divert to abstained report with SYSTEM_ERROR (SPEC 5.3)
+            system_abst_dec = build_abstention_decision(
+                primary_reason=AbstentionReasonCode.SYSTEM_ERROR,
+                explanation=f"System error: provenance completeness assertion failed ({prov_err}). Material claims must be grounded.",
+                at_iteration_budget=False,
+            )
+            abstained_rep = create_abstained_report(
+                original_report=ready_report,
+                abstention_decision=system_abst_dec,
+                case=state.case,
+                verifications=state.verifications,
+            ).model_copy(update={"urgent_banner": state.urgent_banner})
+
+            with SessionLocal() as session:
+                save_provenance_edges(session, edges)
+                try:
+                    transition_case_state(
+                        session=session,
+                        case_id=state.case_id,
+                        target_state=CaseReviewState.ABSTAINED,
+                        actor_id="system_orchestrator",
+                        actor_role="system",
+                        report_version_id=abstained_rep.report_version_id,
+                        audit_repo=self.audit_repository,
+                        reason="Abstained due to provenance completeness failure",
+                    )
+                except Exception as t_err:
+                    logger.warning("Case transition to ABSTAINED failed: %s", t_err)
+
+            return {
+                "report": abstained_rep,
+                "abstention": system_abst_dec,
+                "workflow_status": ReportStatusEnum.ABSTAINED.value,
+                "current_node": "finalize_ready",
+            }
+
+        # If provenance complete, save edges and transition case state to READY_FOR_REVIEW
+        with SessionLocal() as session:
+            save_provenance_edges(session, edges)
+            try:
+                transition_case_state(
+                    session=session,
+                    case_id=state.case_id,
+                    target_state=CaseReviewState.READY_FOR_REVIEW,
+                    actor_id="system_orchestrator",
+                    actor_role="system",
+                    report_version_id=ready_report.report_version_id,
+                    audit_repo=self.audit_repository,
+                    reason="Passed safety gate checks and provenance completeness verification",
+                )
+            except Exception as t_err:
+                logger.warning("Case transition to READY_FOR_REVIEW failed: %s", t_err)
 
         return {
             "report": ready_report,
@@ -1062,7 +1176,7 @@ class ExtendedWorkflowOrchestrator:
             abstention_decision=abst_dec,
             case=state.case,
             verifications=state.verifications,
-        )
+        ).model_copy(update={"urgent_banner": state.urgent_banner})
 
         try:
             self.repository.save_report_version(
@@ -1083,6 +1197,32 @@ class ExtendedWorkflowOrchestrator:
             )
         except Exception as db_err:
             logger.warning("Persisting abstention decision failed: %s", db_err)
+
+        # Build and save provenance edges for abstained report
+        edges = build_provenance_edges_from_workflow(
+            report=abstained_report,
+            case=state.case,
+            verifications=state.verifications,
+            retrieved_evidence=state.retrieved_evidence,
+            external_evidence=state.external_evidence,
+            iterations=state.iterations,
+            abstention=abst_dec,
+        )
+        with SessionLocal() as session:
+            save_provenance_edges(session, edges)
+            try:
+                transition_case_state(
+                    session=session,
+                    case_id=state.case_id,
+                    target_state=CaseReviewState.ABSTAINED,
+                    actor_id="system_orchestrator",
+                    actor_role="system",
+                    report_version_id=abstained_report.report_version_id,
+                    audit_repo=self.audit_repository,
+                    reason=abst_dec.explanation,
+                )
+            except Exception as t_err:
+                logger.warning("Case transition to ABSTAINED failed: %s", t_err)
 
         return {
             "report": abstained_report,
@@ -1264,6 +1404,21 @@ class ExtendedWorkflowOrchestrator:
         except Exception as exc:
             logger.warning("Updating workflow execution failed: %s", exc)
 
+        if state.workflow_status == "FAILED":
+            with SessionLocal() as session:
+                try:
+                    transition_case_state(
+                        session=session,
+                        case_id=state.case_id,
+                        target_state=CaseReviewState.FAILED,
+                        actor_id="system_orchestrator",
+                        actor_role="system",
+                        audit_repo=self.audit_repository,
+                        reason=state.error_message or "Execution failure",
+                    )
+                except Exception as t_err:
+                    logger.warning("Could not transition case to FAILED: %s", t_err)
+
         return {
             "final_result": workflow_res,
             "current_node": "persist_and_finish",
@@ -1304,12 +1459,38 @@ class ExtendedWorkflowOrchestrator:
         elif initial_state.submission_payload:
             raw_text = str(initial_state.submission_payload.get("raw_text", ""))
 
-        self.repository.create_case(
+        # Urgent symptom rules evaluation BEFORE analysis (SPEC 8, SAF-3)
+        urgent_eval = evaluate_urgent_rules(
+            raw_text=raw_text,
+            findings=None,
             case_id=initial_state.case_id,
-            raw_text_hash=compute_payload_hash(raw_text),
-            chief_complaint=raw_text[:200] if raw_text else "Pending narrative evaluation",
-            status="DRAFT",
+            audit_repo=self.audit_repository,
         )
+        if urgent_eval.is_urgent:
+            initial_state.urgent_banner = urgent_eval.banner_text
+
+        # Ensure parent case exists and transition to ANALYZING
+        with SessionLocal() as session:
+            existing_case = session.get(ClinicalCaseModel, initial_state.case_id)
+            if not existing_case:
+                self.repository.create_case(
+                    case_id=initial_state.case_id,
+                    raw_text_hash=compute_payload_hash(raw_text),
+                    chief_complaint=raw_text[:200] if raw_text else "Pending narrative evaluation",
+                    status="DRAFT",
+                )
+            try:
+                transition_case_state(
+                    session=session,
+                    case_id=initial_state.case_id,
+                    target_state=CaseReviewState.ANALYZING,
+                    actor_id="system_orchestrator",
+                    actor_role="system",
+                    audit_repo=self.audit_repository,
+                    reason="Starting multi-agent clinical workflow execution",
+                )
+            except Exception as t_err:
+                logger.warning("Case transition to ANALYZING failed: %s", t_err)
 
         self.repository.create_workflow_execution(
             execution_id=initial_state.execution_id,

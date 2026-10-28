@@ -65,50 +65,6 @@ FIXTURE_PATH = os.path.join(
 TEST_COLLECTION_VERSION = 98
 
 
-@pytest.fixture(scope="module")
-def setup_extended_corpus():
-    """Ingest synthetic fixture corpus into test Qdrant collection and clean up afterwards."""
-    qdrant = QdrantWrapper()
-    embedder = EmbeddingService()
-    col_name = format_collection_name(embedder.model_name, TEST_COLLECTION_VERSION)
-
-    # Clean existing records
-    with SessionLocal() as session:
-        session.execute(delete(EvidencePassageModel).where(EvidencePassageModel.evidence_id.like("ev:bioasq:SYNTH%")))
-        session.execute(delete(EvidenceDocumentModel).where(EvidenceDocumentModel.source_id.in_(["111001", "111002", "111003", "111004", "111005"])))
-        session.commit()
-
-    if qdrant.collection_exists(col_name):
-        qdrant.client.delete_collection(col_name)
-
-    pipeline = IngestionPipeline(
-        embedding_service=embedder,
-        qdrant_wrapper=qdrant,
-        db_session_factory=SessionLocal,
-    )
-    pipeline.ingest_file(
-        file_path=FIXTURE_PATH,
-        collection_version=TEST_COLLECTION_VERSION,
-        reindex=False,
-        batch_size=10,
-    )
-
-    yield {
-        "qdrant": qdrant,
-        "embedder": embedder,
-        "collection_version": TEST_COLLECTION_VERSION,
-        "collection_name": col_name,
-    }
-
-    if qdrant.collection_exists(col_name):
-        qdrant.client.delete_collection(col_name)
-
-    with SessionLocal() as session:
-        session.execute(delete(EvidencePassageModel).where(EvidencePassageModel.evidence_id.like("ev:bioasq:SYNTH%")))
-        session.execute(delete(EvidenceDocumentModel).where(EvidenceDocumentModel.source_id.in_(["111001", "111002", "111003", "111004", "111005"])))
-        session.commit()
-
-
 def make_canned_llm_for_extended_workflow(
     clarifier_dict: Optional[Dict] = None,
     rag_hypotheses_text: Optional[str] = None,

@@ -1,0 +1,92 @@
+# ==============================================================================
+# CLINEXUS RESEARCH PROTOTYPE URGENT SYMPTOM PATTERN SET
+#
+# CRITICAL CLINICAL NOTICE / LIMITATION:
+# This urgent symptom ruleset is a prototype heuristic engineered for testing and
+# safety demonstration. It is NOT clinically validated, NOT certified as a medical
+# device, and MUST undergo exhaustive multidisciplinary clinical review, formal
+# hospital validation, and medical governance review before any real-world use.
+# It does not guarantee detection of all acute emergencies and must never replace
+# immediate human medical evaluation.
+# ==============================================================================
+
+version: "1.0"
+banner_text: "Possible urgent presentation: do not delay appropriate urgent human assessment"
+
+rules:
+  - id: "URG-01"
+    name: "chest_pain_with_dyspnea"
+    category: "cardiovascular"
+    description: "Concurrent acute chest discomfort/pressure and dyspnea/breathlessness"
+    require_both_groups: true
+    primary_terms:
+      - "chest pain"
+      - "retrosternal pain"
+      - "chest pressure"
+      - "chest discomfort"
+      - "chest tightness"
+      - "substernal pain"
+    secondary_terms:
+      - "dyspnea"
+      - "shortness of breath"
+      - "difficulty breathing"
+      - "breathlessness"
+      - "air hunger"
+
+  - id: "URG-02"
+    name: "sudden_focal_neurological_deficit"
+    category: "neurological"
+    description: "Acute or sudden focal neurological deficit suggestive of stroke or TIA"
+    require_both_groups: false
+    primary_terms:
+      - "sudden facial droop"
+      - "sudden weakness"
+      - "sudden hemiparesis"
+      - "sudden slurred speech"
+      - "acute stroke"
+      - "sudden vision loss"
+      - "sudden numbness on one side"
+      - "sudden aphasia"
+
+  - id: "URG-03"
+    name: "suicidal_ideation_statements"
+    category: "psychiatric"
+    description: "Explicit statements of suicidal ideation, intent, or self-harm"
+    require_both_groups: false
+    primary_terms:
+      - "suicidal ideation"
+      - "thoughts of suicide"
+      - "want to end my life"
+      - "wanting to end my life"
+      - "thoughts of self-harm"
+      - "kill myself"
+      - "wishing to die"
+      - "plan to commit suicide"
+
+  - id: "URG-04"
+    name: "severe_bleeding"
+    category: "hemodynamic"
+    description: "Acute massive, uncontrolled, or gastrointestinal/pulmonary hemorrhage"
+    require_both_groups: false
+    primary_terms:
+      - "severe bleeding"
+      - "massive hemorrhage"
+      - "uncontrolled bleeding"
+      - "vomiting blood"
+      - "hematemesis"
+      - "coughing up blood"
+      - "massive hemoptysis"
+      - "profuse rectal bleeding"
+
+  - id: "URG-05"
+    name: "anaphylaxis_signs"
+    category: "immunological"
+    description: "Rapidly progressing acute systemic allergic reaction or airway compromise"
+    require_both_groups: false
+    primary_terms:
+      - "anaphylaxis"
+      - "anaphylactic shock"
+      - "swelling of lips and tongue"
+      - "throat swelling with wheezing"
+      - "angioedema with respiratory distress"
+      - "acute airway swelling"

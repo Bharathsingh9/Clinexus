@@ -65,3 +65,41 @@ def test_append_and_retrieve_audit_event(test_db_session):
     events = repo.list_by_resource("clinical_case", "case-456")
     assert len(events) == 1
     assert events[0].id == event.event_id
+
+
+def test_audit_events_linked_across_report_revisions(test_db_session):
+    """Verify audit events are accurately linked to specific report versions across revisions."""
+    repo = AuditRepository(test_db_session)
+
+    # Event for Report Version 1
+    ev_v1 = AuditEventSchema(
+        event_type="REPORT_SYNTHESIZED",
+        actor_id="fusion-agent",
+        actor_role="agent",
+        resource_type="report_version",
+        resource_id="rv-version-1",
+        payload={"version_number": 1, "confidence": 0.85},
+    )
+    repo.append_event(ev_v1)
+
+    # Event for Report Version 2 (revision)
+    ev_v2 = AuditEventSchema(
+        event_type="REPORT_REVISED",
+        actor_id="fusion-agent",
+        actor_role="agent",
+        resource_type="report_version",
+        resource_id="rv-version-2",
+        payload={"version_number": 2, "confidence": 0.91},
+    )
+    repo.append_event(ev_v2)
+
+    # Retrieve and verify separate version linkage
+    v1_events = repo.list_by_resource("report_version", "rv-version-1")
+    assert len(v1_events) == 1
+    assert v1_events[0].id == ev_v1.event_id
+    assert "version_number\": 1" in v1_events[0].payload
+
+    v2_events = repo.list_by_resource("report_version", "rv-version-2")
+    assert len(v2_events) == 1
+    assert v2_events[0].id == ev_v2.event_id
+    assert "version_number\": 2" in v2_events[0].payload

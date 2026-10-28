@@ -110,6 +110,7 @@ class CandidateClinicalReport(BaseModel):
     sections: Dict[str, str] = Field(default_factory=dict)
     confidence_score: float = Field(..., ge=0.0, le=1.0)
     status: ReportStatusEnum = Field(default=ReportStatusEnum.DRAFT)
+    urgent_banner: Optional[str] = Field(None, description="Banner text for possible urgent presentation")
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     schema_version: str = Field(default="1.0")
 

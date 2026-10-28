@@ -125,6 +125,7 @@ class WorkflowState(BaseModel):
     report_history: List[CandidateClinicalReport] = Field(default_factory=list)
     current_iteration: int = Field(default=0, ge=0, le=3)
     iteration_cap_reached: bool = Field(default=False)
+    urgent_banner: Optional[str] = Field(None, description="Banner text for possible urgent presentation")
     schema_version: str = Field(default="1.0")
 
     model_config = ConfigDict(extra="forbid")
