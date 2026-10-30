@@ -88,7 +88,10 @@ def test_end_to_end_provenance_review_and_versioning(setup_extended_corpus):
     )
     final_state = orchestrator.run(submission=sub)
 
-    assert final_state.workflow_status == ReportStatusEnum.READY_FOR_REVIEW.value
+    assert final_state.workflow_status == ReportStatusEnum.READY_FOR_REVIEW.value, (
+        f"Expected READY_FOR_REVIEW but got {final_state.workflow_status}. "
+        f"Abstention: {final_state.abstention}. Records: {final_state.agent_records}"
+    )
     assert final_state.report is not None
     v1_report_id = final_state.report.report_version_id
     case_id = final_state.case_id
@@ -189,6 +192,12 @@ def test_end_to_end_provenance_review_and_versioning(setup_extended_corpus):
         ).all())
         assert len(v1_edges) > 0
         assert len(v2_edges) > 0
+
+        # Assert audit links for v1 are preserved and separate across revisions
+        v1_audit = audit_repo.list_by_resource("report_version", v1_report_id)
+        assert len(v1_audit) >= 2  # MARK_REVIEWED and REQUEST_REVISION for v1
+        for ev in v1_audit:
+            assert ev.resource_id == v1_report_id
 
 
 def test_urgent_rules_integration_with_workflow(setup_extended_corpus):

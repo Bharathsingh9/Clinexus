@@ -23,7 +23,7 @@ FIXTURE_PATH = os.path.join(
 TEST_COLLECTION_VERSION = 98
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="function")
 def setup_extended_corpus():
     """Ingest synthetic fixture corpus into test Qdrant collection and clean up afterwards."""
     qdrant = QdrantWrapper()

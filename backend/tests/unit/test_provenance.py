@@ -262,3 +262,54 @@ def test_provenance_persistence_in_database(sqlite_session):
 
     # Completeness check against database
     assert assert_provenance_complete(report_row, session=sqlite_session) is True
+
+
+def test_provenance_completeness_failure_diverts_to_abstained_system_error():
+    """Safety Invariant: A provenance completeness failure ends in abstention with SYSTEM_ERROR and NEVER in ready."""
+    from backend.app.orchestration.extended_workflow import ExtendedWorkflowOrchestrator
+    from backend.app.persistence.execution_repository import ExecutionRepository
+    from backend.app.schemas.executions import WorkflowState
+    from backend.app.schemas.reports import AbstentionReasonCode
+    from backend.tests.fixtures.fake_llm_provider import FakeLLMProvider
+    from backend.tests.fixtures.fake_ncbi_client import FakeNCBIClient
+
+    orchestrator = ExtendedWorkflowOrchestrator(
+        llm_provider=FakeLLMProvider(),
+        ncbi_client=FakeNCBIClient(),
+        repository=ExecutionRepository(),
+    )
+
+    uncovered_claim = CandidateClaim(
+        claim_id="uncovered-claim-1",
+        report_version_id="rv-uncovered",
+        claim_text="Material claim citing evidence that lacks verification edges.",
+        section="observations",
+        is_material=True,
+        cited_evidence_ids=["ev:bioasq:nonexistent:0"],
+        source_spans=[],
+    )
+    report = CandidateClinicalReport(
+        case_id="case-prov-fail",
+        report_version_id="rv-uncovered",
+        version_number=1,
+        summary="Draft report",
+        claims=[uncovered_claim],
+        confidence_score=0.85,
+    )
+
+    state = WorkflowState(
+        execution_id="exec-prov-fail",
+        case_id="case-prov-fail",
+        report=report,
+        workflow_status="RUNNING",
+    )
+
+    # Calling finalize_ready must trigger the provenance completeness check
+    result = orchestrator.node_finalize_ready(state)
+
+    # Invariant: Must end in ABSTAINED, NEVER in READY_FOR_REVIEW
+    assert result["workflow_status"] == ReportStatusEnum.ABSTAINED.value
+    assert result["workflow_status"] != ReportStatusEnum.READY_FOR_REVIEW.value
+    assert result["abstention"].reason_codes[0] == AbstentionReasonCode.SYSTEM_ERROR
+    assert AbstentionReasonCode.SYSTEM_ERROR in result["abstention"].reason_codes
+    assert "provenance completeness assertion failed" in result["abstention"].explanation

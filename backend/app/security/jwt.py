@@ -22,12 +22,10 @@ logger.info("Using PyJWT version %s for token management", PYJWT_VERSION)
 
 class TokenExpiredError(Exception):
     """Raised when an access token has expired."""
-    pass
 
 
 class InvalidTokenError(Exception):
     """Raised when an access token signature or payload is invalid or tampered with."""
-    pass
 
 
 def create_access_token(

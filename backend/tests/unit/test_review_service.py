@@ -154,8 +154,18 @@ def test_request_revision_moves_state_to_revision_requested(sqlite_session, setu
     assert "Revision requested" in rev.outcome
 
 
-def test_viewer_is_strictly_rejected_from_review_actions(sqlite_session, setup_case_and_report):
-    """Safety Invariant: Viewer role is strictly prohibited from executing review actions."""
+@pytest.mark.parametrize(
+    "action",
+    [
+        ReviewActionEnum.MARK_REVIEWED,
+        ReviewActionEnum.REQUEST_REVISION,
+        ReviewActionEnum.REQUEST_EVIDENCE_REFRESH,
+        ReviewActionEnum.REQUEST_CLARIFICATION,
+        ReviewActionEnum.ADD_NOTE,
+    ],
+)
+def test_viewer_is_strictly_rejected_from_every_review_action(sqlite_session, setup_case_and_report, action):
+    """Safety Invariant: Viewer role is strictly prohibited from executing every review action."""
     data = setup_case_and_report
     service = ReviewService(sqlite_session)
 
@@ -165,5 +175,6 @@ def test_viewer_is_strictly_rejected_from_review_actions(sqlite_session, setup_c
             report_version_id=data["report_id"],
             reviewer_id=data["viewer_id"],
             reviewer_role=UserRole.VIEWER.value,
-            action=ReviewActionEnum.MARK_REVIEWED,
+            action=action,
+            note="Attempted viewer note.",
         )

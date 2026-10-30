@@ -224,6 +224,10 @@ def save_provenance_edges(
     # Map candidate_claims in DB for valid foreign keys
     db_models: List[ProvenanceEdgeModel] = []
     for e in edges:
+        # Check report_version_id exists in DB (foreign key safety)
+        if not session.get(ReportVersionModel, e.report_version_id):
+            continue
+
         # Check claim_id exists if specified
         valid_claim_id = None
         if e.claim_id:
@@ -286,6 +290,20 @@ def save_provenance_edges(
     return db_models
 
 
+GROUNDING_RELATIONS = frozenset({
+    ProvenanceRelationEnum.SUPPORTS,
+    ProvenanceRelationEnum.PARTIALLY_SUPPORTS,
+    ProvenanceRelationEnum.CONTRADICTS,
+    ProvenanceRelationEnum.INSUFFICIENT,
+    ProvenanceRelationEnum.DERIVED_FROM_PATIENT_INPUT,
+    "SUPPORTS",
+    "PARTIALLY_SUPPORTS",
+    "CONTRADICTS",
+    "INSUFFICIENT",
+    "DERIVED_FROM_PATIENT_INPUT",
+})
+
+
 def assert_provenance_complete(
     report_version: Union[CandidateClinicalReport, ReportVersionModel, str],
     session: Optional[Session] = None,
@@ -307,12 +325,15 @@ def assert_provenance_complete(
         # Check in provided edges list
         if edges is not None:
             covered_claim_ids: Set[str] = {
-                e.claim_id for e in edges if e.claim_id is not None
+                e.claim_id for e in edges if e.claim_id is not None and e.relation in GROUNDING_RELATIONS
             }
         elif session is not None:
             stmt = select(ProvenanceEdgeModel.claim_id).where(
                 ProvenanceEdgeModel.report_version_id == version_id,
                 ProvenanceEdgeModel.claim_id.is_not(None),
+                ProvenanceEdgeModel.relation.in_([
+                    "SUPPORTS", "PARTIALLY_SUPPORTS", "CONTRADICTS", "INSUFFICIENT", "DERIVED_FROM_PATIENT_INPUT"
+                ]),
             )
             covered_claim_ids = set(session.scalars(stmt).all())
         else:
@@ -336,6 +357,9 @@ def assert_provenance_complete(
         stmt_edges = select(ProvenanceEdgeModel.claim_id).where(
             ProvenanceEdgeModel.report_version_id == version_id,
             ProvenanceEdgeModel.claim_id.is_not(None),
+            ProvenanceEdgeModel.relation.in_([
+                "SUPPORTS", "PARTIALLY_SUPPORTS", "CONTRADICTS", "INSUFFICIENT", "DERIVED_FROM_PATIENT_INPUT"
+            ]),
         )
         covered_claim_ids = set(session.scalars(stmt_edges).all())
 
@@ -357,6 +381,9 @@ def assert_provenance_complete(
         stmt_edges = select(ProvenanceEdgeModel.claim_id).where(
             ProvenanceEdgeModel.report_version_id == version_id,
             ProvenanceEdgeModel.claim_id.is_not(None),
+            ProvenanceEdgeModel.relation.in_([
+                "SUPPORTS", "PARTIALLY_SUPPORTS", "CONTRADICTS", "INSUFFICIENT", "DERIVED_FROM_PATIENT_INPUT"
+            ]),
         )
         covered_claim_ids = set(session.scalars(stmt_edges).all())
 
