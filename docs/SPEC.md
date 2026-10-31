@@ -162,3 +162,10 @@ A7. LLMs: the paper uses different models per agent. This build uses one provide
 A8. Treatment guidance: the paper's Fusion agent generates treatment guidance; this build does not [DEVIATION-FROM-PAPER: SAFETY]. The baseline is "base-paper-style, safety-restricted" and also omits treatment. List this in docs/safety_and_limitations.md.
 A9. External sources: the paper uses PubMed, Google Scholar, NICE, and Serper; this build uses PubMed only [DEVIATION-FROM-PAPER]. Where EFetch returns publication types (for example systematic review, practice guideline), store them as evidence_level; do not invent hierarchy weights.
 A10. Where docs say "paper-faithful baseline", state which behaviors are deviations (A8, A9, A6 fallback).
+A11. Evaluation decisions (before Phase 5)
+- Chunk-to-row relevance: ranking for metrics is at corpus-row level. Collapse chunks of the same corpus row, keep the best chunk score, and rank rows by it. A hit on any chunk counts as a hit on its row. The duplicate-group rule (SPEC 9.9) applies after collapsing.
+- Expected ingestion count is 85,139 passages (effective chunk 98 tokens, overlap 20) from 75,919 source rows, with the same count in PostgreSQL and Qdrant.
+- Score range recalibration happens on the dev split only. A human confirms the new values before any eval-split run. Never tune on eval.
+- Each final evaluation configuration runs on the eval split once; all tuning uses dev.
+- A hard cap on LLM calls per evaluation run (setting EVAL_MAX_LLM_CALLS). When reached, the run stops, writes a partial result labeled PARTIAL, and never reports it as a full result.
+- The first real LLM run is smoke30 only; token usage is recorded; larger runs start only after I approve the smoke30 results.

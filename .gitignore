@@ -29,3 +29,6 @@ qdrant_storage/
 dist/
 build/
 *.egg-info/
+demo/data/
+demo/viewer/data/
+

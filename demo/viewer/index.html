@@ -1,0 +1,1020 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Clinexus Demo Viewer — Research Prototype</title>
+  <style>
+
+    :root {
+      --bg: #ffffff;
+      --bg-alt: #f3f4f6;
+      --bg-panel: #f9fafb;
+      --border: #d1d5db;
+      --text: #111827;
+      --text-muted: #6b7280;
+      --blue: #1d4ed8;
+      --blue-bg: #eff6ff;
+      --blue-border: #bfdbfe;
+      --amber: #b45309;
+      --amber-bg: #fffbeb;
+      --amber-border: #fde68a;
+      --red: #b91c1c;
+      --red-bg: #fef2f2;
+      --red-border: #fecaca;
+      --purple: #7c3aed;
+      --purple-bg: #f5f3ff;
+      --purple-border: #ddd6fe;
+      --urgent: #7f1d1d;
+      --urgent-bg: #fee2e2;
+      --human-bg: #f0fdf4;
+      --human-border: #bbf7d0;
+      --human-text: #14532d;
+      --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #111827;
+        --bg-alt: #1f2937;
+        --bg-panel: #1f2937;
+        --border: #374151;
+        --text: #f9fafb;
+        --text-muted: #9ca3af;
+        --blue: #60a5fa;
+        --blue-bg: #1e3a5f;
+        --blue-border: #1e40af;
+        --amber: #fbbf24;
+        --amber-bg: #451a03;
+        --amber-border: #92400e;
+        --red: #f87171;
+        --red-bg: #450a0a;
+        --red-border: #7f1d1d;
+        --purple: #c084fc;
+        --purple-bg: #2e1065;
+        --purple-border: #6b21a8;
+        --urgent: #fca5a5;
+        --urgent-bg: #450a0a;
+        --human-bg: #052e16;
+        --human-border: #166534;
+        --human-text: #86efac;
+      }
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: var(--font);
+      font-size: 17px;
+      line-height: 1.6;
+      color: var(--text);
+      background: var(--bg);
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 1.5rem 3rem;
+    }
+
+    .honesty-banner {
+      background: var(--amber-bg);
+      border: 2px solid var(--amber-border);
+      color: var(--amber);
+      padding: 0.9rem 1.4rem;
+      margin: 1rem 0;
+      border-radius: 6px;
+      font-size: 0.97rem;
+    }
+
+    .page-header { margin: 1.5rem 0 1rem; }
+    .page-header h1 { font-size: 1.7rem; font-weight: 700; }
+    .page-header .subtitle { font-size: 1.1rem; font-weight: 400; color: var(--text-muted); }
+    .generated-at { color: var(--text-muted); font-size: 0.85rem; margin-top: 0.3rem; }
+
+    .legend {
+      display: flex; flex-wrap: wrap; gap: 0.8rem 1.4rem;
+      padding: 0.7rem 1rem; background: var(--bg-alt);
+      border: 1px solid var(--border); border-radius: 6px;
+      margin-bottom: 1.2rem; font-size: 0.88rem;
+      align-items: center;
+    }
+    .legend-item { display: flex; align-items: center; gap: 0.35rem; }
+    .dot { display: inline-block; width: 12px; height: 12px; border-radius: 50%; }
+
+    .tab-bar {
+      display: flex; flex-wrap: wrap; gap: 0.4rem;
+      border-bottom: 2px solid var(--border); margin-bottom: 1.5rem;
+      padding-bottom: 0;
+    }
+    .tab-btn {
+      padding: 0.55rem 1.3rem; cursor: pointer;
+      border: 1px solid var(--border); border-bottom: none;
+      border-radius: 6px 6px 0 0;
+      background: var(--bg-alt); color: var(--text);
+      font-size: 1rem; font-family: var(--font);
+      transition: background 0.15s;
+    }
+    .tab-btn:hover { background: var(--blue-bg); color: var(--blue); }
+    .tab-btn.active { background: var(--bg); border-bottom: 2px solid var(--bg); font-weight: 600; color: var(--blue); }
+    .tab-btn:focus-visible { outline: 3px solid var(--blue); outline-offset: 2px; }
+
+    .scenario-panel { animation: fadein 0.2s ease; }
+    @keyframes fadein { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; } }
+
+    .scenario-title { font-size: 1.25rem; font-weight: 700; margin-bottom: 0.7rem; }
+    .meta-row { display: flex; flex-wrap: wrap; gap: 1rem; margin-bottom: 1rem; font-size: 0.92rem; color: var(--text-muted); }
+
+    section { margin: 1.8rem 0; }
+    section h3 { font-size: 1.1rem; font-weight: 600; margin-bottom: 0.8rem; display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+
+    .panel {
+      background: var(--bg-panel); border: 1px solid var(--border);
+      border-radius: 8px; padding: 1rem 1.2rem; margin-bottom: 1rem;
+    }
+    .gate-panel { border-left: 4px solid var(--blue); }
+    .abstention-panel { border-left: 4px solid var(--purple); }
+    .veto-panel { border-left: 4px solid var(--red); }
+    .rbac-panel { border-left: 4px solid var(--red); }
+    .review-panel { border-left: 4px solid var(--blue); }
+
+    .gate-outcome { display: flex; align-items: center; gap: 1rem; margin-bottom: 0.7rem; }
+    .gate-rule { color: var(--text-muted); font-size: 0.9rem; }
+
+    .veto-row { display: flex; align-items: center; gap: 1rem; margin-bottom: 0.8rem; flex-wrap: wrap; }
+    .veto-col { display: flex; flex-direction: column; gap: 0.3rem; align-items: flex-start; }
+    .veto-arrow { font-weight: 600; color: var(--text-muted); }
+
+    .status-badge {
+      display: inline-block; padding: 0.2rem 0.6rem;
+      border-radius: 4px; font-size: 0.82rem; font-weight: 600;
+    }
+    .status-blue { background: var(--blue-bg); color: var(--blue); border: 1px solid var(--blue-border); }
+    .status-amber { background: var(--amber-bg); color: var(--amber); border: 1px solid var(--amber-border); }
+    .status-red { background: var(--red-bg); color: var(--red); border: 1px solid var(--red-border); }
+    .status-purple { background: var(--purple-bg); color: var(--purple); border: 1px solid var(--purple-border); }
+
+    .dot.status-blue { background: var(--blue); }
+    .dot.status-amber { background: var(--amber); }
+    .dot.status-red { background: var(--red); }
+    .dot.status-purple { background: var(--purple); }
+
+    .tag-real, .tag-scripted, .tag-human {
+      display: inline-block; padding: 0.1rem 0.45rem;
+      border-radius: 3px; font-size: 0.75rem; font-weight: 700;
+      letter-spacing: 0.02em; text-transform: uppercase; vertical-align: middle;
+    }
+    .tag-real { background: var(--blue-bg); color: var(--blue); border: 1px solid var(--blue-border); }
+    .tag-scripted { background: var(--amber-bg); color: var(--amber); border: 1px solid var(--amber-border); }
+    .tag-human { background: var(--human-bg); color: var(--human-text); border: 1px solid var(--human-border); }
+
+    .urgent-alert {
+      background: var(--urgent-bg); color: var(--urgent);
+      border: 2px solid #dc2626; border-radius: 6px;
+      padding: 0.8rem 1.1rem; margin-bottom: 1rem;
+      font-size: 0.95rem;
+    }
+
+    .clinical-note {
+      background: var(--amber-bg); border: 1px solid var(--amber-border);
+      border-radius: 6px; padding: 0.7rem 1rem; margin-bottom: 1rem;
+      font-size: 0.9rem; color: var(--amber);
+    }
+
+    .pipeline {
+      display: flex; flex-wrap: wrap; align-items: center;
+      gap: 0.3rem; margin-bottom: 1rem; overflow-x: auto;
+    }
+    .pipe-node {
+      background: var(--bg-alt); border: 1px solid var(--border);
+      border-radius: 6px; padding: 0.4rem 0.7rem;
+      font-size: 0.8rem; text-align: center;
+      cursor: default; transition: box-shadow 0.15s;
+    }
+    .pipe-node:focus-visible { outline: 3px solid var(--blue); outline-offset: 2px; }
+    .pipe-node.status-blue { background: var(--blue-bg); border-color: var(--blue-border); color: var(--blue); }
+    .pipe-node.status-amber { background: var(--amber-bg); border-color: var(--amber-border); color: var(--amber); }
+    .pipe-node.status-red { background: var(--red-bg); border-color: var(--red-border); color: var(--red); }
+    .pipe-node.status-purple { background: var(--purple-bg); border-color: var(--purple-border); color: var(--purple); }
+
+    .timeline-table-details { margin-top: 0.5rem; }
+    .timeline-table-details summary { cursor: pointer; color: var(--text-muted); font-size: 0.9rem; }
+
+    .data-table {
+      width: 100%; border-collapse: collapse; font-size: 0.88rem;
+      margin-top: 0.5rem; border: 1px solid var(--border);
+    }
+    .data-table th, .data-table td {
+      padding: 0.5rem 0.7rem; border: 1px solid var(--border);
+      text-align: left; vertical-align: top;
+    }
+    .data-table th { background: var(--bg-alt); font-weight: 600; }
+    .data-table tr:nth-child(even) td { background: var(--bg-alt); }
+    .data-table tr.human-row td { background: var(--human-bg); color: var(--human-text); }
+
+    .claims-table .claim-row { cursor: pointer; transition: background 0.15s; }
+    .claims-table .claim-row:hover td { background: var(--blue-bg); }
+    .claims-table .claim-row:focus-visible { outline: 3px solid var(--blue); outline-offset: -2px; }
+    .claim-text { display: block; }
+    .claim-detail-inner {
+      padding: 0.8rem; background: var(--bg-alt);
+      border-radius: 4px; border: 1px dashed var(--border);
+    }
+    .claim-detail-inner p { margin-bottom: 0.5rem; }
+
+    .evidence-table { margin-top: 0.5rem; }
+    .text-preview { max-width: 320px; font-size: 0.83rem; color: var(--text-muted); }
+    .note-cell { max-width: 280px; font-size: 0.85rem; }
+
+    .no-evidence-note {
+      padding: 0.5rem 0.8rem; background: var(--red-bg);
+      border: 1px solid var(--red-border); border-radius: 4px;
+      color: var(--red); font-size: 0.88rem; margin-top: 0.5rem;
+    }
+    .limitation { color: var(--text-muted); font-size: 0.87rem; margin-top: 0.4rem; }
+
+    .reason-codes { padding-left: 1.2rem; }
+    .reason-codes li { margin-bottom: 0.2rem; }
+
+    .human-note {
+      background: var(--human-bg); border: 1px solid var(--human-border);
+      color: var(--human-text); border-radius: 5px;
+      padding: 0.5rem 0.8rem; margin: 0.4rem 0;
+      display: flex; gap: 0.5rem; align-items: flex-start;
+    }
+    .human-note-text { flex: 1; }
+
+    .audit-table td { font-size: 0.83rem; }
+
+    .origin-table { max-width: 500px; }
+
+    .instruction { color: var(--text-muted); font-size: 0.88rem; margin-bottom: 0.5rem; }
+    .empty-note { color: var(--text-muted); font-style: italic; }
+
+    .page-footer {
+      margin-top: 3rem; padding-top: 1.2rem;
+      border-top: 1px solid var(--border);
+      color: var(--text-muted); font-size: 0.85rem;
+    }
+
+    code {
+      font-family: "Consolas", "Courier New", monospace;
+      font-size: 0.85em;
+      background: var(--bg-alt); padding: 0.1em 0.3em;
+      border-radius: 3px;
+    }
+    
+  </style>
+</head>
+<body>
+  <!-- Permanent honesty banner -->
+  <div class="honesty-banner" role="banner" aria-live="polite">
+    <strong>DEMO VIEWER: not the Clinexus application interface.</strong>
+    Language-model outputs are <strong>SCRIPTED</strong>;
+    embeddings, retrieval, workflow, verifier checks, gate, provenance, and audit are <strong>REAL</strong>.
+    Research prototype, not clinically validated. No accuracy results are shown.
+  </div>
+
+  <header class="page-header">
+    <h1>Clinexus Clinical Decision Support<br><span class="subtitle">Live Workflow Demonstration Viewer</span></h1>
+    <p class="generated-at">Generated: 2026-10-30T19:49:16.972718+00:00 &nbsp;|&nbsp; Authorization: DEC-041</p>
+  </header>
+
+  <!-- Legend -->
+  <div class="legend" role="note" aria-label="Color legend">
+    <span class="legend-item"><span class="dot status-blue"></span> Completed / Ready</span>
+    <span class="legend-item"><span class="dot status-amber"></span> Partial / Running / Unverified</span>
+    <span class="legend-item"><span class="dot status-red"></span> Contradicted / Failed / Vetoed</span>
+    <span class="legend-item"><span class="dot status-purple"></span> Abstained</span>
+    <span class="legend-item"><span class="tag-real">REAL</span> Implemented system component</span>
+    <span class="legend-item"><span class="tag-scripted">SCRIPTED</span> Demo stand-in</span>
+    <span class="legend-item"><span class="tag-human">HUMAN</span> Clinician-authored content</span>
+  </div>
+
+  <!-- Scenario tabs -->
+  <nav class="tab-bar" role="tablist" aria-label="Demo Scenarios">
+    <button class="tab-btn" id="tab-btn-A" onclick="showScenario('A')" aria-label="Scenario A">Scenario A</button>
+<button class="tab-btn" id="tab-btn-B" onclick="showScenario('B')" aria-label="Scenario B">Scenario B</button>
+<button class="tab-btn" id="tab-btn-C" onclick="showScenario('C')" aria-label="Scenario C">Scenario C</button>
+<button class="tab-btn" id="tab-btn-D" onclick="showScenario('D')" aria-label="Scenario D">Scenario D</button>
+
+  </nav>
+
+  <main class="main-content">
+    
+        <div class="scenario-panel" id="panel-A" role="tabpanel" aria-labelledby="tab-btn-A" hidden>
+          <h2 class="scenario-title">READY PATH — Grounded benchmark query, all gate rules pass</h2>
+          <div class="meta-row">
+            <span>Database: <code>clinexus_demo</code> &nbsp;|&nbsp; Qdrant v777</span>
+            <span>Elapsed: <strong>2.404s</strong></span>
+            <span>Final State: <span class="status-badge status-blue">READY_FOR_REVIEW</span></span>
+          </div>
+          
+          
+          <section aria-label="Pipeline Timeline">
+            <h3>Pipeline Timeline <span class="tag-real">REAL</span></h3>
+            
+    <div class="pipeline" role="list" aria-label="Pipeline steps">
+      <span class="pipe-node status-blue" tabindex="0"
+          aria-label="validate_case: COMPLETED, 24 ms"
+          title="Case submission validated (len=44)">validate_case<br><small>COMPLETED</small><br><small>24 ms</small></span> &rarr; <span class="pipe-node status-blue" tabindex="0"
+          aria-label="clinical_text_clarifier: COMPLETED, 55 ms"
+          title="Extracted 1 symptoms">clinical_text_clarifier<br><small>COMPLETED</small><br><small>55 ms</small></span> &rarr; <span class="pipe-node status-blue" tabindex="0"
+          aria-label="symptom_rag_analyzer: COMPLETED, 1742 ms"
+          title="Retrieved 10 passages">symptom_rag_analyzer<br><small>COMPLETED</small><br><small>1742 ms</small></span> &rarr; <span class="pipe-node status-blue" tabindex="0"
+          aria-label="evidence_based_scanner: COMPLETED, 23 ms"
+          title="External passages: 0">evidence_based_scanner<br><small>COMPLETED</small><br><small>23 ms</small></span> &rarr; <span class="pipe-node status-blue" tabindex="0"
+          aria-label="clinical_data_fusion: COMPLETED, 50 ms"
+          title="Report version 1 generated">clinical_data_fusion<br><small>COMPLETED</small><br><small>50 ms</small></span> &rarr; <span class="pipe-node status-blue" tabindex="0"
+          aria-label="claim_verification: COMPLETED, 38 ms"
+          title="Verified 1 claims">claim_verification<br><small>COMPLETED</small><br><small>38 ms</small></span>
+    </div>
+    <details class="timeline-table-details">
+      <summary>Full timeline table</summary>
+      <table class="data-table" aria-label="Timeline details">
+        <thead><tr><th>Node</th><th>Status</th><th>Duration</th><th>Note</th></tr></thead>
+        <tbody><tr>
+          <td>validate_case</td>
+          <td><span class="status-badge status-blue">COMPLETED</span></td>
+          <td>24 ms</td>
+          <td class="note-cell">Case submission validated (len=44)</td>
+        </tr><tr>
+          <td>clinical_text_clarifier</td>
+          <td><span class="status-badge status-blue">COMPLETED</span></td>
+          <td>55 ms</td>
+          <td class="note-cell">Extracted 1 symptoms</td>
+        </tr><tr>
+          <td>symptom_rag_analyzer</td>
+          <td><span class="status-badge status-blue">COMPLETED</span></td>
+          <td>1742 ms</td>
+          <td class="note-cell">Retrieved 10 passages</td>
+        </tr><tr>
+          <td>evidence_based_scanner</td>
+          <td><span class="status-badge status-blue">COMPLETED</span></td>
+          <td>23 ms</td>
+          <td class="note-cell">External passages: 0</td>
+        </tr><tr>
+          <td>clinical_data_fusion</td>
+          <td><span class="status-badge status-blue">COMPLETED</span></td>
+          <td>50 ms</td>
+          <td class="note-cell">Report version 1 generated</td>
+        </tr><tr>
+          <td>claim_verification</td>
+          <td><span class="status-badge status-blue">COMPLETED</span></td>
+          <td>38 ms</td>
+          <td class="note-cell">Verified 1 claims</td>
+        </tr></tbody>
+      </table>
+    </details>
+          </section>
+          
+    <section aria-label="Evidence Safety Gate">
+      <h3>Evidence Safety Gate <span class="tag-real">REAL</span></h3>
+      <div class="panel gate-panel">
+        <div class="gate-outcome">
+          <span class="status-badge status-blue">finalize_ready</span>
+          <span class="gate-rule">All rules evaluated</span>
+        </div>
+        <p><strong>Reason codes:</strong> <em>None</em></p>
+        <p><strong>Explanation:</strong> All 6 gate rules passed. Report finalized as READY_FOR_REVIEW.</p>
+      </div>
+    </section>
+          
+          
+    <section aria-label="Claims Table">
+      <h3>Claims <span class="tag-scripted">SCRIPTED text</span> / <span class="tag-real">REAL verification</span></h3>
+      <p class="instruction">Click a row to expand evidence and verification details.</p>
+      <table class="data-table claims-table" aria-label="Claims">
+        <thead><tr><th>Claim Text</th><th>Section</th><th>Verification Status</th></tr></thead>
+        <tbody><tr class="claim-row" tabindex="0" onclick="toggleClaimDetail('f57f0698-01c6-41c3-845a-00a1d58d07ee')"
+            onkeydown="if(event.key==='Enter'||event.key===' ')toggleClaimDetail('f57f0698-01c6-41c3-845a-00a1d58d07ee')"
+            aria-expanded="false" aria-controls="claim-detail-f57f0698-01c6-41c3-845a-00a1d58d07ee">
+          <td class="claim-text-cell">
+            <span class="claim-text">UNKNOWN: Formin Is Associated with Left-Right Asymmetry in the Pond Snail and the Frog.</span>
+            <span class="tag-scripted">SCRIPTED text</span>
+          </td>
+          <td>potential_considerations</td>
+          <td><span class="status-badge status-amber">SUPPORTED</span> <span class="tag-real">REAL</span></td>
+        </tr>
+        <tr class="claim-detail" id="claim-detail-f57f0698-01c6-41c3-845a-00a1d58d07ee" hidden>
+          <td colspan="3">
+            <div class="claim-detail-inner">
+              <p><strong>Full claim text <span class="tag-scripted">SCRIPTED</span>:</strong> UNKNOWN: Formin Is Associated with Left-Right Asymmetry in the Pond Snail and the Frog.</p>
+              <p><strong>Verification method <span class="tag-real">REAL</span>:</strong> HYBRID</p>
+              <p><strong>Justification <span class="tag-real">REAL</span>:</strong> Entailment confirmed against cited literature passage.</p>
+              
+              
+              <h4>Cited Evidence Passages <span class='tag-real'>REAL retrieval</span></h4><table class='evidence-table'><thead><tr><th>Evidence ID</th><th>Source</th><th>Text Preview</th><th>Score</th></tr></thead><tbody>
+              <tr>
+                <td><code>ev:bioasq:E026601:0</code></td>
+                <td>BIOASQ</td>
+                <td class="text-preview">Formin Is Associated with Left-Right Asymmetry in the Pond Snail and the Frog</td>
+                <td>0.701</td>
+              </tr></tbody></table>
+            </div>
+          </td>
+        </tr></tbody>
+      </table>
+    </section>
+          
+    <section aria-label="Provenance Graph">
+      <h3>Claim-to-Evidence Provenance (SPEC 5.3) <span class="tag-real">REAL</span></h3>
+      <p>Total relational provenance edges recorded: <strong>12</strong></p>
+      <table class="data-table" aria-label="Provenance edges">
+        <thead><tr><th>Relation</th><th>Claim ID (prefix)</th><th>Target ID (prefix)</th></tr></thead>
+        <tbody><tr>
+          <td><code>GENERATED_IN</code></td>
+          <td><small><code>f57f0698-01c6-41…</code></small></td>
+          <td><small><code>…</code></small></td>
+        </tr><tr>
+          <td><code>SUPPORTS</code></td>
+          <td><small><code>f57f0698-01c6-41…</code></small></td>
+          <td><small><code>…</code></small></td>
+        </tr><tr>
+          <td><code>RETRIEVED_BY</code></td>
+          <td><small><code>…</code></small></td>
+          <td><small><code>d9e7501e-36fd-45…</code></small></td>
+        </tr><tr>
+          <td><code>RETRIEVED_BY</code></td>
+          <td><small><code>…</code></small></td>
+          <td><small><code>d9e7501e-36fd-45…</code></small></td>
+        </tr><tr>
+          <td><code>RETRIEVED_BY</code></td>
+          <td><small><code>…</code></small></td>
+          <td><small><code>d9e7501e-36fd-45…</code></small></td>
+        </tr><tr>
+          <td><code>RETRIEVED_BY</code></td>
+          <td><small><code>…</code></small></td>
+          <td><small><code>d9e7501e-36fd-45…</code></small></td>
+        </tr><tr>
+          <td><code>RETRIEVED_BY</code></td>
+          <td><small><code>…</code></small></td>
+          <td><small><code>d9e7501e-36fd-45…</code></small></td>
+        </tr><tr>
+          <td><code>RETRIEVED_BY</code></td>
+          <td><small><code>…</code></small></td>
+          <td><small><code>d2d5c641-7264-46…</code></small></td>
+        </tr><tr>
+          <td><code>RETRIEVED_BY</code></td>
+          <td><small><code>…</code></small></td>
+          <td><small><code>27e2d886-e3f6-4e…</code></small></td>
+        </tr><tr>
+          <td><code>RETRIEVED_BY</code></td>
+          <td><small><code>…</code></small></td>
+          <td><small><code>06829fac-ce1f-41…</code></small></td>
+        </tr><tr>
+          <td><code>RETRIEVED_BY</code></td>
+          <td><small><code>…</code></small></td>
+          <td><small><code>8ced97f4-d273-42…</code></small></td>
+        </tr><tr>
+          <td><code>RETRIEVED_BY</code></td>
+          <td><small><code>…</code></small></td>
+          <td><small><code>8a0bcacf-2eb2-49…</code></small></td>
+        </tr></tbody>
+      </table>
+      
+    </section>
+          
+          
+          
+          
+    <section aria-label="Origin Summary">
+      <h3>What Was Real vs Scripted (This Scenario)</h3>
+      <table class="data-table origin-table" aria-label="Origin summary">
+        <thead><tr><th>Component</th><th>Origin</th></tr></thead>
+        <tbody><tr><td>timeline</td><td><span class="tag-real">REAL</span></td></tr><tr><td>retrieval</td><td><span class="tag-real">REAL</span></td></tr><tr><td>verification</td><td><span class="tag-real">REAL</span></td></tr><tr><td>gate_decision</td><td><span class="tag-real">REAL</span></td></tr><tr><td>provenance</td><td><span class="tag-real">REAL</span></td></tr><tr><td>claim_text</td><td><span class="tag-scripted">SCRIPTED</span></td></tr><tr><td>entailment_judgment</td><td><span class="tag-scripted">SCRIPTED</span></td></tr></tbody>
+      </table>
+    </section>
+        </div>
+        
+        <div class="scenario-panel" id="panel-B" role="tabpanel" aria-labelledby="tab-btn-B" hidden>
+          <h2 class="scenario-title">UNSUPPORTED PATH — Numeric entity mismatch → code veto → budget exhausted → ABSTAINED</h2>
+          <div class="meta-row">
+            <span>Database: <code>clinexus_demo</code> &nbsp;|&nbsp; Qdrant v777</span>
+            <span>Elapsed: <strong>2.430s</strong></span>
+            <span>Final State: <span class="status-badge status-red">ABSTAINED</span></span>
+          </div>
+          
+          
+          <section aria-label="Pipeline Timeline">
+            <h3>Pipeline Timeline <span class="tag-real">REAL</span></h3>
+            
+    <div class="pipeline" role="list" aria-label="Pipeline steps">
+      <span class="pipe-node status-blue" tabindex="0"
+          aria-label="validate_case: COMPLETED, 25 ms"
+          title="Case submission validated (len=44)">validate_case<br><small>COMPLETED</small><br><small>25 ms</small></span> &rarr; <span class="pipe-node status-blue" tabindex="0"
+          aria-label="clinical_text_clarifier: COMPLETED, 45 ms"
+          title="Extracted 1 symptoms">clinical_text_clarifier<br><small>COMPLETED</small><br><small>45 ms</small></span> &rarr; <span class="pipe-node status-blue" tabindex="0"
+          aria-label="symptom_rag_analyzer: COMPLETED, 1692 ms"
+          title="Retrieved 10 passages">symptom_rag_analyzer<br><small>COMPLETED</small><br><small>1692 ms</small></span> &rarr; <span class="pipe-node status-blue" tabindex="0"
+          aria-label="evidence_based_scanner: COMPLETED, 18 ms"
+          title="External passages: 0">evidence_based_scanner<br><small>COMPLETED</small><br><small>18 ms</small></span> &rarr; <span class="pipe-node status-blue" tabindex="0"
+          aria-label="clinical_data_fusion: COMPLETED, 35 ms"
+          title="Report version 1 generated">clinical_data_fusion<br><small>COMPLETED</small><br><small>35 ms</small></span> &rarr; <span class="pipe-node status-blue" tabindex="0"
+          aria-label="claim_verification: COMPLETED, 33 ms"
+          title="Verified 1 claims">claim_verification<br><small>COMPLETED</small><br><small>33 ms</small></span> &rarr; <span class="pipe-node status-blue" tabindex="0"
+          aria-label="adaptive_optimizer: COMPLETED, 39 ms"
+          title="Selected REQUEST_CLARIFICATION">adaptive_optimizer<br><small>COMPLETED</small><br><small>39 ms</small></span> &rarr; <span class="pipe-node status-blue" tabindex="0"
+          aria-label="symptom_rag_analyzer: COMPLETED, 77 ms"
+          title="Retrieved 10 passages">symptom_rag_analyzer<br><small>COMPLETED</small><br><small>77 ms</small></span> &rarr; <span class="pipe-node status-blue" tabindex="0"
+          aria-label="evidence_based_scanner: COMPLETED, 19 ms"
+          title="External passages: 0">evidence_based_scanner<br><small>COMPLETED</small><br><small>19 ms</small></span> &rarr; <span class="pipe-node status-blue" tabindex="0"
+          aria-label="clinical_data_fusion: COMPLETED, 34 ms"
+          title="Report version 2 generated">clinical_data_fusion<br><small>COMPLETED</small><br><small>34 ms</small></span> &rarr; <span class="pipe-node status-blue" tabindex="0"
+          aria-label="claim_verification: COMPLETED, 29 ms"
+          title="Verified 1 claims">claim_verification<br><small>COMPLETED</small><br><small>29 ms</small></span> &rarr; <span class="pipe-node status-blue" tabindex="0"
+          aria-label="adaptive_optimizer: COMPLETED, 29 ms"
+          title="Selected REQUEST_CLARIFICATION">adaptive_optimizer<br><small>COMPLETED</small><br><small>29 ms</small></span> &rarr; <span class="pipe-node status-blue" tabindex="0"
+          aria-label="symptom_rag_analyzer: COMPLETED, 97 ms"
+          title="Retrieved 10 passages">symptom_rag_analyzer<br><small>COMPLETED</small><br><small>97 ms</small></span> &rarr; <span class="pipe-node status-blue" tabindex="0"
+          aria-label="evidence_based_scanner: COMPLETED, 18 ms"
+          title="External passages: 0">evidence_based_scanner<br><small>COMPLETED</small><br><small>18 ms</small></span> &rarr; <span class="pipe-node status-blue" tabindex="0"
+          aria-label="clinical_data_fusion: COMPLETED, 35 ms"
+          title="Report version 3 generated">clinical_data_fusion<br><small>COMPLETED</small><br><small>35 ms</small></span> &rarr; <span class="pipe-node status-blue" tabindex="0"
+          aria-label="claim_verification: COMPLETED, 28 ms"
+          title="Verified 1 claims">claim_verification<br><small>COMPLETED</small><br><small>28 ms</small></span> &rarr; <span class="pipe-node status-blue" tabindex="0"
+          aria-label="adaptive_optimizer: COMPLETED, 30 ms"
+          title="Selected STOP">adaptive_optimizer<br><small>COMPLETED</small><br><small>30 ms</small></span>
+    </div>
+    <details class="timeline-table-details">
+      <summary>Full timeline table</summary>
+      <table class="data-table" aria-label="Timeline details">
+        <thead><tr><th>Node</th><th>Status</th><th>Duration</th><th>Note</th></tr></thead>
+        <tbody><tr>
+          <td>validate_case</td>
+          <td><span class="status-badge status-blue">COMPLETED</span></td>
+          <td>25 ms</td>
+          <td class="note-cell">Case submission validated (len=44)</td>
+        </tr><tr>
+          <td>clinical_text_clarifier</td>
+          <td><span class="status-badge status-blue">COMPLETED</span></td>
+          <td>45 ms</td>
+          <td class="note-cell">Extracted 1 symptoms</td>
+        </tr><tr>
+          <td>symptom_rag_analyzer</td>
+          <td><span class="status-badge status-blue">COMPLETED</span></td>
+          <td>1692 ms</td>
+          <td class="note-cell">Retrieved 10 passages</td>
+        </tr><tr>
+          <td>evidence_based_scanner</td>
+          <td><span class="status-badge status-blue">COMPLETED</span></td>
+          <td>18 ms</td>
+          <td class="note-cell">External passages: 0</td>
+        </tr><tr>
+          <td>clinical_data_fusion</td>
+          <td><span class="status-badge status-blue">COMPLETED</span></td>
+          <td>35 ms</td>
+          <td class="note-cell">Report version 1 generated</td>
+        </tr><tr>
+          <td>claim_verification</td>
+          <td><span class="status-badge status-blue">COMPLETED</span></td>
+          <td>33 ms</td>
+          <td class="note-cell">Verified 1 claims</td>
+        </tr><tr>
+          <td>adaptive_optimizer</td>
+          <td><span class="status-badge status-blue">COMPLETED</span></td>
+          <td>39 ms</td>
+          <td class="note-cell">Selected REQUEST_CLARIFICATION</td>
+        </tr><tr>
+          <td>symptom_rag_analyzer</td>
+          <td><span class="status-badge status-blue">COMPLETED</span></td>
+          <td>77 ms</td>
+          <td class="note-cell">Retrieved 10 passages</td>
+        </tr><tr>
+          <td>evidence_based_scanner</td>
+          <td><span class="status-badge status-blue">COMPLETED</span></td>
+          <td>19 ms</td>
+          <td class="note-cell">External passages: 0</td>
+        </tr><tr>
+          <td>clinical_data_fusion</td>
+          <td><span class="status-badge status-blue">COMPLETED</span></td>
+          <td>34 ms</td>
+          <td class="note-cell">Report version 2 generated</td>
+        </tr><tr>
+          <td>claim_verification</td>
+          <td><span class="status-badge status-blue">COMPLETED</span></td>
+          <td>29 ms</td>
+          <td class="note-cell">Verified 1 claims</td>
+        </tr><tr>
+          <td>adaptive_optimizer</td>
+          <td><span class="status-badge status-blue">COMPLETED</span></td>
+          <td>29 ms</td>
+          <td class="note-cell">Selected REQUEST_CLARIFICATION</td>
+        </tr><tr>
+          <td>symptom_rag_analyzer</td>
+          <td><span class="status-badge status-blue">COMPLETED</span></td>
+          <td>97 ms</td>
+          <td class="note-cell">Retrieved 10 passages</td>
+        </tr><tr>
+          <td>evidence_based_scanner</td>
+          <td><span class="status-badge status-blue">COMPLETED</span></td>
+          <td>18 ms</td>
+          <td class="note-cell">External passages: 0</td>
+        </tr><tr>
+          <td>clinical_data_fusion</td>
+          <td><span class="status-badge status-blue">COMPLETED</span></td>
+          <td>35 ms</td>
+          <td class="note-cell">Report version 3 generated</td>
+        </tr><tr>
+          <td>claim_verification</td>
+          <td><span class="status-badge status-blue">COMPLETED</span></td>
+          <td>28 ms</td>
+          <td class="note-cell">Verified 1 claims</td>
+        </tr><tr>
+          <td>adaptive_optimizer</td>
+          <td><span class="status-badge status-blue">COMPLETED</span></td>
+          <td>30 ms</td>
+          <td class="note-cell">Selected STOP</td>
+        </tr></tbody>
+      </table>
+    </details>
+          </section>
+          
+    <section aria-label="Evidence Safety Gate">
+      <h3>Evidence Safety Gate <span class="tag-real">REAL</span></h3>
+      <div class="panel gate-panel">
+        <div class="gate-outcome">
+          <span class="status-badge status-purple">finalize_abstain</span>
+          <span class="gate-rule">All rules evaluated</span>
+        </div>
+        <p><strong>Reason codes:</strong> <code>UNSUPPORTED_MATERIAL_CLAIMS</code>, <code>ITERATION_BUDGET_EXHAUSTED</code></p>
+        <p><strong>Explanation:</strong> Optimizer iteration requested: 1 unsupported safety-critical claims and 0 contradicted material claims.</p>
+      </div>
+    </section>
+          
+    <section aria-label="Abstention Decision">
+      <h3>Abstention Decision <span class="tag-real">REAL</span> <span class="status-badge status-purple">ABSTAINED</span></h3>
+      <div class="panel abstention-panel">
+        <p><strong>Explanation:</strong> Optimizer iteration requested: 1 unsupported safety-critical claims and 0 contradicted material claims.</p>
+        <p><strong>Reason Codes:</strong></p>
+        <ul class="reason-codes"><li><code>UNSUPPORTED_MATERIAL_CLAIMS</code></li><li><code>ITERATION_BUDGET_EXHAUSTED</code></li></ul>
+        <p><strong>Affected Sections:</strong> <em>None</em></p>
+        <p><strong>Suggested Next Steps:</strong></p><ul><li>Conduct thorough clinical assessment; this decision-support tool has abstained from providing differential considerations.</li><li>Verify documented patient history and physical examination findings.</li><li>Consult specialist literature or institutional clinical protocols independently.</li></ul>
+      </div>
+    </section>
+          
+    <section aria-label="Claims">
+      <h3>Claims <span class="tag-scripted">SCRIPTED text</span> / <span class="tag-real">REAL verification</span></h3>
+      <p class="empty-note">No claims generated (abstained before claim synthesis or no relevant evidence).</p>
+    </section>
+          
+          
+    <section aria-label="Optimizer Iterations">
+      <h3>Adaptive Optimizer Iterations <span class="tag-real">REAL</span></h3>
+      <table class="data-table" aria-label="Optimizer iterations">
+        <thead><tr><th>#</th><th>Node Selected</th><th>Conf Before</th><th>Conf After</th><th>Action</th></tr></thead>
+        <tbody><tr>
+          <td>1</td>
+          <td><code>REQUEST_CLARIFICATION</code></td>
+          <td>0.649</td>
+          <td>None</td>
+          <td>Unresolved blocking patient finding detected. Instruction: Revising candidate clinical considerations against literature evidence.</td>
+        </tr><tr>
+          <td>2</td>
+          <td><code>REQUEST_CLARIFICATION</code></td>
+          <td>0.649</td>
+          <td>None</td>
+          <td>Unresolved blocking patient finding detected. Instruction: Revising candidate clinical considerations against literature evidence.</td>
+        </tr><tr>
+          <td>3</td>
+          <td><code>STOP</code></td>
+          <td>0.649</td>
+          <td>None</td>
+          <td>NO_PROGRESS: Consecutive iterations produced identical operation with no confidence improvement. Instruction: Revising candidate clinical considerations against literature evidence.</td>
+        </tr></tbody>
+      </table>
+    </section>
+          
+    <section aria-label="Numeric Veto Demonstration">
+      <h3>Deterministic Numeric Veto Demonstration</h3>
+      <div class="panel veto-panel">
+        <div class="veto-row">
+          <div class="veto-col">
+            <span class="tag-scripted">SCRIPTED judge output</span>
+            <span class="status-badge status-blue">SUPPORTED</span>
+          </div>
+          <div class="veto-arrow">&rarr; real code veto &rarr;</div>
+          <div class="veto-col">
+            <span class="tag-real">REAL code result</span>
+            <span class="status-badge status-red">PARTIALLY_SUPPORTED</span>
+          </div>
+        </div>
+        <p><strong>Veto reason:</strong> Numeric value &#39;99&#39; is absent from every cited literature passage.</p>
+        <p><strong>Claim text (SCRIPTED):</strong> <em>UNKNOWN: Formin Is Associated with Left-Right Asymmetry in the Pond Snail and the Frog involving 99 distinct signaling pathways.</em></p>
+        <p class="no-evidence-note">⚠ The number "99" injected by the scripted model does not appear in any cited passage.
+        Real deterministic Python regex veto catches this and downgrades to PARTIALLY_SUPPORTED, overriding the scripted judge.</p>
+      </div>
+    </section>
+          
+          
+    <section aria-label="Origin Summary">
+      <h3>What Was Real vs Scripted (This Scenario)</h3>
+      <table class="data-table origin-table" aria-label="Origin summary">
+        <thead><tr><th>Component</th><th>Origin</th></tr></thead>
+        <tbody><tr><td>timeline</td><td><span class="tag-real">REAL</span></td></tr><tr><td>retrieval</td><td><span class="tag-real">REAL</span></td></tr><tr><td>numeric_veto</td><td><span class="tag-real">REAL</span></td></tr><tr><td>optimizer_iterations</td><td><span class="tag-real">REAL</span></td></tr><tr><td>gate_decision</td><td><span class="tag-real">REAL</span></td></tr><tr><td>abstention</td><td><span class="tag-real">REAL</span></td></tr><tr><td>claim_text_with_99</td><td><span class="tag-scripted">SCRIPTED</span></td></tr><tr><td>entailment_judgment</td><td><span class="tag-scripted">SCRIPTED</span></td></tr></tbody>
+      </table>
+    </section>
+        </div>
+        
+        <div class="scenario-panel" id="panel-C" role="tabpanel" aria-labelledby="tab-btn-C" hidden>
+          <h2 class="scenario-title">URGENT + NO EVIDENCE PATH — Pre-analysis urgent banner → 0 relevant passages → ABSTAINED</h2>
+          <div class="meta-row">
+            <span>Database: <code>clinexus_demo</code> &nbsp;|&nbsp; Qdrant v777</span>
+            <span>Elapsed: <strong>1.750s</strong></span>
+            <span>Final State: <span class="status-badge status-red">ABSTAINED</span></span>
+          </div>
+          
+            <div class="urgent-alert" role="alert">
+              <strong>⚠ URGENT SYMPTOM ALERT</strong><br>
+              Possible urgent presentation: do not delay appropriate urgent human assessment<br>
+              <span class="tag-real">REAL — pre-analysis pattern match fires before workflow</span>
+            </div>
+            <div class="urgent-alert" role="alert">
+              <strong>Pre-Analysis Safety Check (REAL):</strong>
+              Urgent pattern matched: chest_pain_with_dyspnea
+            </div>
+          <div class="clinical-note">[SYNTHETIC] case only. No clinical guidance is presented. System terminates safely.</div>
+          <section aria-label="Pipeline Timeline">
+            <h3>Pipeline Timeline <span class="tag-real">REAL</span></h3>
+            
+    <div class="pipeline" role="list" aria-label="Pipeline steps">
+      <span class="pipe-node status-blue" tabindex="0"
+          aria-label="validate_case: COMPLETED, 21 ms"
+          title="Case submission validated (len=117)">validate_case<br><small>COMPLETED</small><br><small>21 ms</small></span> &rarr; <span class="pipe-node status-blue" tabindex="0"
+          aria-label="clinical_text_clarifier: COMPLETED, 53 ms"
+          title="Extracted 2 symptoms">clinical_text_clarifier<br><small>COMPLETED</small><br><small>53 ms</small></span> &rarr; <span class="pipe-node status-blue" tabindex="0"
+          aria-label="symptom_rag_analyzer: COMPLETED, 1377 ms"
+          title="Retrieved 10 passages">symptom_rag_analyzer<br><small>COMPLETED</small><br><small>1377 ms</small></span> &rarr; <span class="pipe-node status-blue" tabindex="0"
+          aria-label="evidence_based_scanner: COMPLETED, 20 ms"
+          title="External passages: 0">evidence_based_scanner<br><small>COMPLETED</small><br><small>20 ms</small></span> &rarr; <span class="pipe-node status-blue" tabindex="0"
+          aria-label="clinical_data_fusion: COMPLETED, 34 ms"
+          title="Report version 1 generated">clinical_data_fusion<br><small>COMPLETED</small><br><small>34 ms</small></span> &rarr; <span class="pipe-node status-blue" tabindex="0"
+          aria-label="claim_verification: COMPLETED, 19 ms"
+          title="Verified 0 claims">claim_verification<br><small>COMPLETED</small><br><small>19 ms</small></span> &rarr; <span class="pipe-node status-blue" tabindex="0"
+          aria-label="adaptive_optimizer: COMPLETED, 30 ms"
+          title="Selected STOP">adaptive_optimizer<br><small>COMPLETED</small><br><small>30 ms</small></span>
+    </div>
+    <details class="timeline-table-details">
+      <summary>Full timeline table</summary>
+      <table class="data-table" aria-label="Timeline details">
+        <thead><tr><th>Node</th><th>Status</th><th>Duration</th><th>Note</th></tr></thead>
+        <tbody><tr>
+          <td>validate_case</td>
+          <td><span class="status-badge status-blue">COMPLETED</span></td>
+          <td>21 ms</td>
+          <td class="note-cell">Case submission validated (len=117)</td>
+        </tr><tr>
+          <td>clinical_text_clarifier</td>
+          <td><span class="status-badge status-blue">COMPLETED</span></td>
+          <td>53 ms</td>
+          <td class="note-cell">Extracted 2 symptoms</td>
+        </tr><tr>
+          <td>symptom_rag_analyzer</td>
+          <td><span class="status-badge status-blue">COMPLETED</span></td>
+          <td>1377 ms</td>
+          <td class="note-cell">Retrieved 10 passages</td>
+        </tr><tr>
+          <td>evidence_based_scanner</td>
+          <td><span class="status-badge status-blue">COMPLETED</span></td>
+          <td>20 ms</td>
+          <td class="note-cell">External passages: 0</td>
+        </tr><tr>
+          <td>clinical_data_fusion</td>
+          <td><span class="status-badge status-blue">COMPLETED</span></td>
+          <td>34 ms</td>
+          <td class="note-cell">Report version 1 generated</td>
+        </tr><tr>
+          <td>claim_verification</td>
+          <td><span class="status-badge status-blue">COMPLETED</span></td>
+          <td>19 ms</td>
+          <td class="note-cell">Verified 0 claims</td>
+        </tr><tr>
+          <td>adaptive_optimizer</td>
+          <td><span class="status-badge status-blue">COMPLETED</span></td>
+          <td>30 ms</td>
+          <td class="note-cell">Selected STOP</td>
+        </tr></tbody>
+      </table>
+    </details>
+          </section>
+          
+    <section aria-label="Evidence Safety Gate">
+      <h3>Evidence Safety Gate <span class="tag-real">REAL</span></h3>
+      <div class="panel gate-panel">
+        <div class="gate-outcome">
+          <span class="status-badge status-purple">finalize_abstain</span>
+          <span class="gate-rule">Rule 4</span>
+        </div>
+        <p><strong>Reason codes:</strong> <code>UNSUPPORTED_MATERIAL_CLAIMS</code></p>
+        <p><strong>Explanation:</strong> Gate Rule 4: fewer than MIN_RELEVANT_PASSAGES passages above threshold.</p>
+      </div>
+    </section>
+          
+    <section aria-label="Abstention Decision">
+      <h3>Abstention Decision <span class="tag-real">REAL</span> <span class="status-badge status-purple">ABSTAINED</span></h3>
+      <div class="panel abstention-panel">
+        <p><strong>Explanation:</strong> Optimizer iteration requested: only 1 relevant passages (minimum required: 2). Alternative queries available.</p>
+        <p><strong>Reason Codes:</strong></p>
+        <ul class="reason-codes"><li><code>UNSUPPORTED_MATERIAL_CLAIMS</code></li></ul>
+        <p><strong>Affected Sections:</strong> <em>None</em></p>
+        <p><strong>Suggested Next Steps:</strong></p><ul><li>Conduct thorough clinical assessment; this decision-support tool has abstained from providing differential considerations.</li><li>Verify documented patient history and physical examination findings.</li><li>Consult specialist literature or institutional clinical protocols independently.</li></ul>
+      </div>
+    </section>
+          
+    <section aria-label="Claims">
+      <h3>Claims <span class="tag-scripted">SCRIPTED text</span> / <span class="tag-real">REAL verification</span></h3>
+      <p class="empty-note">No claims generated (abstained before claim synthesis or no relevant evidence).</p>
+    </section>
+          
+          
+    <section aria-label="Optimizer Iterations">
+      <h3>Adaptive Optimizer Iterations <span class="tag-real">REAL</span></h3>
+      <table class="data-table" aria-label="Optimizer iterations">
+        <thead><tr><th>#</th><th>Node Selected</th><th>Conf Before</th><th>Conf After</th><th>Action</th></tr></thead>
+        <tbody><tr>
+          <td>1</td>
+          <td><code>STOP</code></td>
+          <td>0.800</td>
+          <td>None</td>
+          <td>CONDITION_MET: Confidence score 0.800 meets threshold 0.65. Instruction: Revising candidate clinical considerations against literature evidence.</td>
+        </tr></tbody>
+      </table>
+    </section>
+          
+          
+          
+    <section aria-label="Origin Summary">
+      <h3>What Was Real vs Scripted (This Scenario)</h3>
+      <table class="data-table origin-table" aria-label="Origin summary">
+        <thead><tr><th>Component</th><th>Origin</th></tr></thead>
+        <tbody><tr><td>timeline</td><td><span class="tag-real">REAL</span></td></tr><tr><td>urgent_detection</td><td><span class="tag-real">REAL</span></td></tr><tr><td>retrieval</td><td><span class="tag-real">REAL</span></td></tr><tr><td>gate_decision</td><td><span class="tag-real">REAL</span></td></tr><tr><td>abstention</td><td><span class="tag-real">REAL</span></td></tr><tr><td>case_text</td><td><span class="tag-scripted">SYNTHETIC_DEMO_NOT_REAL_PATIENT</span></td></tr></tbody>
+      </table>
+    </section>
+        </div>
+        
+        <div class="scenario-panel" id="panel-D" role="tabpanel" aria-labelledby="tab-btn-D" hidden>
+          <h2 class="scenario-title">HITL REVIEW &amp; AUDIT PATH — RBAC enforcement, clinician review, append-only audit</h2>
+          <div class="meta-row">
+            <span>Database: <code>clinexus_demo</code> &nbsp;|&nbsp; Qdrant v777</span>
+            <span>Elapsed: <strong>0.000s</strong></span>
+            <span>Final State: <span class="status-badge status-amber"></span></span>
+          </div>
+          
+          
+          <section aria-label="Pipeline Timeline">
+            <h3>Pipeline Timeline <span class="tag-real">REAL</span></h3>
+            <p class='empty-note'>No timeline data.</p>
+          </section>
+          
+          
+          
+    <section aria-label="Claims">
+      <h3>Claims <span class="tag-scripted">SCRIPTED text</span> / <span class="tag-real">REAL verification</span></h3>
+      <p class="empty-note">No claims generated (abstained before claim synthesis or no relevant evidence).</p>
+    </section>
+          
+          
+          
+          
+    <section aria-label="HITL Review and Audit">
+      <h3>HITL Review &amp; Audit <span class="tag-real">REAL</span></h3>
+      
+    <div class="panel rbac-panel">
+      <h4>Step D.1 — RBAC Rejection <span class="tag-real">REAL</span></h4>
+      <p>Role <code>viewer</code> attempted <code>MARK_REVIEWED</code>:</p>
+      <p class="no-evidence-note">⛔ Role &#39;viewer&#39; is not authorized to execute action &#39;MARK_REVIEWED&#39;. Review actions require &#39;clinician_reviewer&#39; or &#39;admin&#39; role.</p>
+    </div>
+      
+    <div class="panel review-panel">
+      <h4>Step D.2 — Clinician Review <span class="tag-real">REAL</span></h4>
+      <p>Action: <code>MARK_REVIEWED</code> &nbsp;|&nbsp;
+         Outcome: <strong>Reviewed by clinician</strong></p>
+      <div class="human-note">
+        <span class="tag-human">HUMAN</span>
+        <span class="human-note-text">[HUMAN] Literature evidence on left-right asymmetry confirmed.</span>
+      </div>
+      <p>Case state after review: <span class="status-badge status-blue">REVIEWED</span></p>
+    </div>
+      
+    <div class="panel">
+      <h4>Step D.3 — Append-Only Persistence <span class="tag-real">REAL</span></h4>
+      <p>Total reviews recorded: <strong>2</strong> — earlier review preserved, not overwritten.</p>
+      <table class="data-table" aria-label="Review records">
+        <thead><tr><th>#</th><th>Action</th><th>Outcome</th><th>Note</th></tr></thead>
+        <tbody><tr>
+          <td>#1</td>
+          <td><code>MARK_REVIEWED</code></td>
+          <td>Reviewed by clinician</td>
+          <td><div class="human-note"><span class="tag-human">HUMAN</span> [HUMAN] Literature evidence on left-right asymmetry confirmed.</div></td>
+        </tr><tr>
+          <td>#2</td>
+          <td><code>ADD_NOTE</code></td>
+          <td>Clinician note recorded</td>
+          <td><div class="human-note"><span class="tag-human">HUMAN</span> [HUMAN] Additional note: Embryonic phenotype confirmed in snail model.</div></td>
+        </tr></tbody>
+      </table>
+    </div>
+      
+    <div class="panel">
+      <h4>Step D.4 — Invalid State Transition Rejection <span class="tag-real">REAL</span></h4>
+      <p>Attempted: <code>REVIEWED → DRAFT</code></p>
+      <p class="no-evidence-note">⛔ Invalid state transition from &#39;REVIEWED&#39; to &#39;DRAFT&#39;. Strictly prohibited by SPEC 5.4 review state machine.</p>
+      <p><em>Pure state machine: only valid transitions in table are permitted.</em></p>
+    </div>
+      
+    <div class="panel">
+      <h4>Immutable Audit Trail <span class="tag-real">REAL</span></h4>
+      <p>Total audit events: <strong>5</strong>.
+         <span class="tag-human">HUMAN</span> rows are clinician-authored events.</p>
+      <table class="data-table audit-table" aria-label="Audit trail">
+        <thead><tr><th>Timestamp</th><th>Event Type</th><th>Actor Role</th><th>Resource</th><th>Payload</th></tr></thead>
+        <tbody><tr >
+          <td><small>2026-10-30 19:49:10</small></td>
+          <td><code>CASE_STATE_CHANGED</code></td>
+          <td>system</td>
+          <td>clinical_case</td>
+          <td><small>{&quot;case_id&quot;: &quot;554bc062-36aa-464f-ab8f-4f08dcd675c4&quot;, &quot;from_state&quot;: &quot;DRAFT&quot;, &quot;to_s…</small> </td>
+        </tr><tr >
+          <td><small>2026-10-30 19:49:12</small></td>
+          <td><code>CASE_STATE_CHANGED</code></td>
+          <td>system</td>
+          <td>clinical_case</td>
+          <td><small>{&quot;case_id&quot;: &quot;554bc062-36aa-464f-ab8f-4f08dcd675c4&quot;, &quot;from_state&quot;: &quot;ANALYZING&quot;, &quot;…</small> </td>
+        </tr><tr >
+          <td><small>2026-10-30 19:49:16</small></td>
+          <td><code>CASE_STATE_CHANGED</code></td>
+          <td>clinician_reviewer</td>
+          <td>clinical_case</td>
+          <td><small>{&quot;case_id&quot;: &quot;554bc062-36aa-464f-ab8f-4f08dcd675c4&quot;, &quot;from_state&quot;: &quot;READY_FOR_REV…</small> </td>
+        </tr><tr class='human-row'>
+          <td><small>2026-10-30 19:49:16</small></td>
+          <td><code>HUMAN_REVIEW_RECORDED</code></td>
+          <td>clinician_reviewer</td>
+          <td>report_version</td>
+          <td><small>{&quot;case_id&quot;: &quot;554bc062-36aa-464f-ab8f-4f08dcd675c4&quot;, &quot;review_id&quot;: &quot;2445e8f5-50e9-…</small> <span class="tag-human">HUMAN</span></td>
+        </tr><tr class='human-row'>
+          <td><small>2026-10-30 19:49:16</small></td>
+          <td><code>HUMAN_REVIEW_RECORDED</code></td>
+          <td>clinician_reviewer</td>
+          <td>report_version</td>
+          <td><small>{&quot;case_id&quot;: &quot;554bc062-36aa-464f-ab8f-4f08dcd675c4&quot;, &quot;review_id&quot;: &quot;8fe9de99-99c3-…</small> <span class="tag-human">HUMAN</span></td>
+        </tr></tbody>
+      </table>
+    </div>
+    </section>
+          
+    <section aria-label="Origin Summary">
+      <h3>What Was Real vs Scripted (This Scenario)</h3>
+      <table class="data-table origin-table" aria-label="Origin summary">
+        <thead><tr><th>Component</th><th>Origin</th></tr></thead>
+        <tbody><tr><td>users</td><td><span class="tag-real">REAL</span></td></tr><tr><td>rbac</td><td><span class="tag-real">REAL</span></td></tr><tr><td>review_actions</td><td><span class="tag-real">REAL</span></td></tr><tr><td>audit_events</td><td><span class="tag-real">REAL</span></td></tr><tr><td>state_machine</td><td><span class="tag-real">REAL</span></td></tr></tbody>
+      </table>
+    </section>
+        </div>
+        
+  </main>
+
+  <footer class="page-footer">
+    <p>Clinexus Demo Viewer &mdash; Research Prototype &mdash; Not for clinical use &mdash; DEC-041</p>
+    <p>No accuracy, recall, or benchmark numbers are displayed. Retrieval output is illustrative, subset corpus, unconfirmed labels, not an evaluation result.</p>
+  </footer>
+
+  <script>
+  // Embedded scenario data (origin: export_demo_results.py run against clinexus_demo)
+  const DEMO_DATA = {"generated_at":"2026-10-30T19:49:16.972718+00:00","authorization":"DEC-041","database":"clinexus_demo","qdrant_collection_version":777,"total_elapsed_s":6.876,"honesty_banner":"DEMO VIEWER: not the Clinexus application interface. Language-model outputs are SCRIPTED; embeddings, retrieval, workflow, verifier checks, gate, provenance, and audit are REAL. Research prototype, not clinically validated. No accuracy results are shown.","scenarios":[{"scenario":"A","title":"READY PATH \u2014 Grounded benchmark query, all gate rules pass","question":"What is formin associated with in the snail?","is_benchmark":true,"elapsed_s":2.404,"workflow_status":"READY_FOR_REVIEW","final_state":"READY_FOR_REVIEW","urgent_banner":null,"timeline":[{"node":"validate_case","status":"COMPLETED","duration_ms":24,"note":"Case submission validated (len=44)","_origin":"REAL"},{"node":"clinical_text_clarifier","status":"COMPLETED","duration_ms":55,"note":"Extracted 1 symptoms","_origin":"REAL"},{"node":"symptom_rag_analyzer","status":"COMPLETED","duration_ms":1742,"note":"Retrieved 10 passages","_origin":"REAL"},{"node":"evidence_based_scanner","status":"COMPLETED","duration_ms":23,"note":"External passages: 0","_origin":"REAL"},{"node":"clinical_data_fusion","status":"COMPLETED","duration_ms":50,"note":"Report version 1 generated","_origin":"REAL"},{"node":"claim_verification","status":"COMPLETED","duration_ms":38,"note":"Verified 1 claims","_origin":"REAL"}],"claims":[{"claim_id":"f57f0698-01c6-41c3-845a-00a1d58d07ee","claim_text":"UNKNOWN: Formin Is Associated with Left-Right Asymmetry in the Pond Snail and the Frog.","section":"potential_considerations","is_material":true,"is_safety_critical":false,"cited_evidence_ids":["ev:bioasq:E026601:0"],"verification_status":"SUPPORTED","verification_justification":"Entailment confirmed against cited literature passage.","verification_method":"HYBRID","verification_limitations":null,"_claim_origin":"SCRIPTED","_verification_origin":"REAL"}],"retrieved_evidence":[{"evidence_id":"ev:bioasq:E026601:0","retrieval_score":0.7005904,"rank":1,"source":"BIOASQ","title":"UNKNOWN","text_preview":"Formin Is Associated with Left-Right Asymmetry in the Pond Snail and the Frog","corpus_version":"7a7ada40597bc7f944bfb4a3aac4561f49897580df9f61a6e8b5de1c3c38933f_pritamdeka/BioBERT-mnli-snli-scinli-scitail-mednli-stsb_v777","embedding_model":"pritamdeka/BioBERT-mnli-snli-scinli-scitail-mednli-stsb","_origin":"REAL"},{"evidence_id":"ev:bioasq:E026604:0","retrieval_score":0.55680346,"rank":2,"source":"BIOASQ","title":"UNKNOWN","text_preview":"This is supported by the observation that an anti-formin drug treatment converts dextral snail embryos to a sinistral phenocopy, and in frogs, drug inhibition or overexpression by microinjection of fo","corpus_version":"7a7ada40597bc7f944bfb4a3aac4561f49897580df9f61a6e8b5de1c3c38933f_pritamdeka/BioBERT-mnli-snli-scinli-scitail-mednli-stsb_v777","embedding_model":"pritamdeka/BioBERT-mnli-snli-scinli-scitail-mednli-stsb","_origin":"REAL"},{"evidence_id":"ev:bioasq:E026602:0","retrieval_score":0.535298,"rank":3,"source":"BIOASQ","title":"UNKNOWN","text_preview":"here, we report that a disabling mutation in one copy of a tandemly duplicated, diaphanous - related formin is perfectly associated with symmetry breaking in the pond snail. this is supported by the o","corpus_version":"7a7ada40597bc7f944bfb4a3aac4561f49897580df9f61a6e8b5de1c3c38933f_pritamdeka/BioBERT-mnli-snli-scinli-scitail-mednli-stsb_v777","embedding_model":"pritamdeka/BioBERT-mnli-snli-scinli-scitail-mednli-stsb","_origin":"REAL"},{"evidence_id":"ev:bioasq:E026602:1","retrieval_score":0.5173625,"rank":4,"source":"BIOASQ","title":"UNKNOWN","text_preview":"inhibition or overexpression by microinjection of formin has a chirality - randomizing effect in early ( pre - cilia ) embryos. contrary to expectations based on existing models [ 3, 4 and 5 ], we dis","corpus_version":"7a7ada40597bc7f944bfb4a3aac4561f49897580df9f61a6e8b5de1c3c38933f_pritamdeka/BioBERT-mnli-snli-scinli-scitail-mednli-stsb_v777","embedding_model":"pritamdeka/BioBERT-mnli-snli-scinli-scitail-mednli-stsb","_origin":"REAL"},{"evidence_id":"ev:bioasq:E026603:0","retrieval_score":0.48274133,"rank":5,"source":"BIOASQ","title":"UNKNOWN","text_preview":"Here, we report that a disabling mutation in one copy of a tandemly duplicated, diaphanous-related formin is perfectly associated with symmetry breaking in the pond snail.","corpus_version":"7a7ada40597bc7f944bfb4a3aac4561f49897580df9f61a6e8b5de1c3c38933f_pritamdeka/BioBERT-mnli-snli-scinli-scitail-mednli-stsb_v777","embedding_model":"pritamdeka/BioBERT-mnli-snli-scinli-scitail-mednli-stsb","_origin":"REAL"}],"gate":{"outcome":"finalize_ready","rule_triggered":null,"reason_codes":[],"explanation":"All 6 gate rules passed. Report finalized as READY_FOR_REVIEW.","_origin":"REAL"},"abstention":null,"iterations":[],"provenance_edges":[{"relation":"GENERATED_IN","claim_id":"f57f0698-01c6-41c3-845a-00a1d58d07ee","evidence_chunk_id":null,"report_section_id":"potential_considerations","document_id":null,"_origin":"REAL"},{"relation":"SUPPORTS","claim_id":"f57f0698-01c6-41c3-845a-00a1d58d07ee","evidence_chunk_id":null,"report_section_id":null,"document_id":null,"_origin":"REAL"},{"relation":"RETRIEVED_BY","claim_id":null,"evidence_chunk_id":null,"report_section_id":null,"document_id":"d9e7501e-36fd-45b8-a8d9-6fc3f5e8a95d","_origin":"REAL"},{"relation":"RETRIEVED_BY","claim_id":null,"evidence_chunk_id":null,"report_section_id":null,"document_id":"d9e7501e-36fd-45b8-a8d9-6fc3f5e8a95d","_origin":"REAL"},{"relation":"RETRIEVED_BY","claim_id":null,"evidence_chunk_id":null,"report_section_id":null,"document_id":"d9e7501e-36fd-45b8-a8d9-6fc3f5e8a95d","_origin":"REAL"},{"relation":"RETRIEVED_BY","claim_id":null,"evidence_chunk_id":null,"report_section_id":null,"document_id":"d9e7501e-36fd-45b8-a8d9-6fc3f5e8a95d","_origin":"REAL"},{"relation":"RETRIEVED_BY","claim_id":null,"evidence_chunk_id":null,"report_section_id":null,"document_id":"d9e7501e-36fd-45b8-a8d9-6fc3f5e8a95d","_origin":"REAL"},{"relation":"RETRIEVED_BY","claim_id":null,"evidence_chunk_id":null,"report_section_id":null,"document_id":"d2d5c641-7264-46c2-ab44-f92522bfd35c","_origin":"REAL"},{"relation":"RETRIEVED_BY","claim_id":null,"evidence_chunk_id":null,"report_section_id":null,"document_id":"27e2d886-e3f6-4e03-a4b7-5db1037bdde6","_origin":"REAL"},{"relation":"RETRIEVED_BY","claim_id":null,"evidence_chunk_id":null,"report_section_id":null,"document_id":"06829fac-ce1f-41bc-baf3-b55236906226","_origin":"REAL"},{"relation":"RETRIEVED_BY","claim_id":null,"evidence_chunk_id":null,"report_section_id":null,"document_id":"8ced97f4-d273-42d1-87a0-74f2a8b162f9","_origin":"REAL"},{"relation":"RETRIEVED_BY","claim_id":null,"evidence_chunk_id":null,"report_section_id":null,"document_id":"8a0bcacf-2eb2-497b-9966-dd5e1ac99d3f","_origin":"REAL"}],"report":{"report_version_id":"a464226f-6f49-4ced-b30a-e5a14cf69a35","case_id":"554bc062-36aa-464f-ab8f-4f08dcd675c4","confidence_score":0.899188,"status":"READY_FOR_REVIEW","sections":{"case_summary":"Inquiry regarding formin protein developmental association in the snail.","relevant_findings":"Formin expression identified in early embryonic development.","evidence_supported_observations":"UNKNOWN: Formin Is Associated with Left-Right Asymmetry in the Pond Snail and the Frog. [ev:bioasq:E026601:0]","potential_considerations":"Left-right asymmetry determination [ev:bioasq:E026601:0]","alternative_explanations":"Cytoskeletal chiral organizing centers.","contradictory_or_limiting_evidence":"No conflicting findings identified in closed-world corpus.","missing_information":"Longitudinal adult morphology records.","uncertainty_and_limitations":"Closed-world benchmark snippet corpus subset.","recommended_evidence_review_steps":"Review cited PubMed abstract.","references":"BioASQ literature citation ev:bioasq:E026601:0."},"_origin":"REAL_STRUCTURE_SCRIPTED_LLM_CONTENT"},"_origin_summary":{"timeline":"REAL","retrieval":"REAL","verification":"REAL","gate_decision":"REAL","provenance":"REAL","claim_text":"SCRIPTED","entailment_judgment":"SCRIPTED"}},{"scenario":"B","title":"UNSUPPORTED PATH \u2014 Numeric entity mismatch \u2192 code veto \u2192 budget exhausted \u2192 ABSTAINED","question":"What is formin associated with in the snail?","is_benchmark":true,"elapsed_s":2.43,"workflow_status":"ABSTAINED","final_state":"ABSTAINED","urgent_banner":null,"timeline":[{"node":"validate_case","status":"COMPLETED","duration_ms":25,"note":"Case submission validated (len=44)","_origin":"REAL"},{"node":"clinical_text_clarifier","status":"COMPLETED","duration_ms":45,"note":"Extracted 1 symptoms","_origin":"REAL"},{"node":"symptom_rag_analyzer","status":"COMPLETED","duration_ms":1692,"note":"Retrieved 10 passages","_origin":"REAL"},{"node":"evidence_based_scanner","status":"COMPLETED","duration_ms":18,"note":"External passages: 0","_origin":"REAL"},{"node":"clinical_data_fusion","status":"COMPLETED","duration_ms":35,"note":"Report version 1 generated","_origin":"REAL"},{"node":"claim_verification","status":"COMPLETED","duration_ms":33,"note":"Verified 1 claims","_origin":"REAL"},{"node":"adaptive_optimizer","status":"COMPLETED","duration_ms":39,"note":"Selected REQUEST_CLARIFICATION","_origin":"REAL"},{"node":"symptom_rag_analyzer","status":"COMPLETED","duration_ms":77,"note":"Retrieved 10 passages","_origin":"REAL"},{"node":"evidence_based_scanner","status":"COMPLETED","duration_ms":19,"note":"External passages: 0","_origin":"REAL"},{"node":"clinical_data_fusion","status":"COMPLETED","duration_ms":34,"note":"Report version 2 generated","_origin":"REAL"},{"node":"claim_verification","status":"COMPLETED","duration_ms":29,"note":"Verified 1 claims","_origin":"REAL"},{"node":"adaptive_optimizer","status":"COMPLETED","duration_ms":29,"note":"Selected REQUEST_CLARIFICATION","_origin":"REAL"},{"node":"symptom_rag_analyzer","status":"COMPLETED","duration_ms":97,"note":"Retrieved 10 passages","_origin":"REAL"},{"node":"evidence_based_scanner","status":"COMPLETED","duration_ms":18,"note":"External passages: 0","_origin":"REAL"},{"node":"clinical_data_fusion","status":"COMPLETED","duration_ms":35,"note":"Report version 3 generated","_origin":"REAL"},{"node":"claim_verification","status":"COMPLETED","duration_ms":28,"note":"Verified 1 claims","_origin":"REAL"},{"node":"adaptive_optimizer","status":"COMPLETED","duration_ms":30,"note":"Selected STOP","_origin":"REAL"}],"claims":[],"retrieved_evidence":[{"evidence_id":"ev:bioasq:E026601:0","retrieval_score":0.7005904,"rank":1,"source":"BIOASQ","title":"UNKNOWN","text_preview":"Formin Is Associated with Left-Right Asymmetry in the Pond Snail and the Frog","corpus_version":"7a7ada40597bc7f944bfb4a3aac4561f49897580df9f61a6e8b5de1c3c38933f_pritamdeka/BioBERT-mnli-snli-scinli-scitail-mednli-stsb_v777","embedding_model":"pritamdeka/BioBERT-mnli-snli-scinli-scitail-mednli-stsb","_origin":"REAL"},{"evidence_id":"ev:bioasq:E026604:0","retrieval_score":0.55680346,"rank":2,"source":"BIOASQ","title":"UNKNOWN","text_preview":"This is supported by the observation that an anti-formin drug treatment converts dextral snail embryos to a sinistral phenocopy, and in frogs, drug inhibition or overexpression by microinjection of fo","corpus_version":"7a7ada40597bc7f944bfb4a3aac4561f49897580df9f61a6e8b5de1c3c38933f_pritamdeka/BioBERT-mnli-snli-scinli-scitail-mednli-stsb_v777","embedding_model":"pritamdeka/BioBERT-mnli-snli-scinli-scitail-mednli-stsb","_origin":"REAL"},{"evidence_id":"ev:bioasq:E026602:0","retrieval_score":0.535298,"rank":3,"source":"BIOASQ","title":"UNKNOWN","text_preview":"here, we report that a disabling mutation in one copy of a tandemly duplicated, diaphanous - related formin is perfectly associated with symmetry breaking in the pond snail. this is supported by the o","corpus_version":"7a7ada40597bc7f944bfb4a3aac4561f49897580df9f61a6e8b5de1c3c38933f_pritamdeka/BioBERT-mnli-snli-scinli-scitail-mednli-stsb_v777","embedding_model":"pritamdeka/BioBERT-mnli-snli-scinli-scitail-mednli-stsb","_origin":"REAL"},{"evidence_id":"ev:bioasq:E026602:1","retrieval_score":0.5173625,"rank":4,"source":"BIOASQ","title":"UNKNOWN","text_preview":"inhibition or overexpression by microinjection of formin has a chirality - randomizing effect in early ( pre - cilia ) embryos. contrary to expectations based on existing models [ 3, 4 and 5 ], we dis","corpus_version":"7a7ada40597bc7f944bfb4a3aac4561f49897580df9f61a6e8b5de1c3c38933f_pritamdeka/BioBERT-mnli-snli-scinli-scitail-mednli-stsb_v777","embedding_model":"pritamdeka/BioBERT-mnli-snli-scinli-scitail-mednli-stsb","_origin":"REAL"},{"evidence_id":"ev:bioasq:E026603:0","retrieval_score":0.48274133,"rank":5,"source":"BIOASQ","title":"UNKNOWN","text_preview":"Here, we report that a disabling mutation in one copy of a tandemly duplicated, diaphanous-related formin is perfectly associated with symmetry breaking in the pond snail.","corpus_version":"7a7ada40597bc7f944bfb4a3aac4561f49897580df9f61a6e8b5de1c3c38933f_pritamdeka/BioBERT-mnli-snli-scinli-scitail-mednli-stsb_v777","embedding_model":"pritamdeka/BioBERT-mnli-snli-scinli-scitail-mednli-stsb","_origin":"REAL"}],"gate":{"outcome":"finalize_abstain","rule_triggered":null,"reason_codes":["UNSUPPORTED_MATERIAL_CLAIMS","ITERATION_BUDGET_EXHAUSTED"],"explanation":"Optimizer iteration requested: 1 unsupported safety-critical claims and 0 contradicted material claims.","_origin":"REAL"},"abstention":{"abstained":true,"reason_codes":["UNSUPPORTED_MATERIAL_CLAIMS","ITERATION_BUDGET_EXHAUSTED"],"explanation":"Optimizer iteration requested: 1 unsupported safety-critical claims and 0 contradicted material claims.","affected_claim_ids":[],"affected_sections":[],"missing_evidence":[],"suggested_next_steps":["Conduct thorough clinical assessment; this decision-support tool has abstained from providing differential considerations.","Verify documented patient history and physical examination findings.","Consult specialist literature or institutional clinical protocols independently."],"_origin":"REAL"},"iterations":[{"iteration_number":1,"node_selected":"REQUEST_CLARIFICATION","confidence_before":0.6492,"confidence_after":null,"action_taken":"Unresolved blocking patient finding detected. Instruction: Revising candidate clinical considerations against literature evidence.","_origin":"REAL"},{"iteration_number":2,"node_selected":"REQUEST_CLARIFICATION","confidence_before":0.6492,"confidence_after":null,"action_taken":"Unresolved blocking patient finding detected. Instruction: Revising candidate clinical considerations against literature evidence.","_origin":"REAL"},{"iteration_number":3,"node_selected":"STOP","confidence_before":0.6492,"confidence_after":null,"action_taken":"NO_PROGRESS: Consecutive iterations produced identical operation with no confidence improvement. Instruction: Revising candidate clinical considerations against literature evidence.","_origin":"REAL"}],"provenance_edges":[],"numeric_veto_demonstration":{"scripted_judge_output":"SUPPORTED","real_code_veto_result":"PARTIALLY_SUPPORTED","veto_reason":"Numeric value '99' is absent from every cited literature passage.","veto_claim":{"claim_id":"b2823acc-c40a-40e7-9dc5-d630158a7ad6","claim_text":"UNKNOWN: Formin Is Associated with Left-Right Asymmetry in the Pond Snail and the Frog involving 99 distinct signaling pathways.","status":"PARTIALLY_SUPPORTED","justification":"Claim downgraded from SUPPORTED to PARTIALLY_SUPPORTED: numeric value(s) ['99'] absent from every cited passage.","_origin_claim":"SCRIPTED","_origin_veto":"REAL"},"_scripted_judge_origin":"SCRIPTED","_veto_origin":"REAL"},"suppressed_sections":{"potential_considerations":"[OMITTED DUE TO ABSTENTION] Unverified diagnostic considerations suppressed for safety.","note":"Unverified considerations are suppressed in abstained report.","_origin":"REAL"},"report":{"report_version_id":"18e192aa-a596-4078-bf9a-ac3deba9b748","case_id":"db3438d3-d759-4eac-8cbf-ba392e8af959","confidence_score":0.0,"status":"ABSTAINED","sections":{"case_summary":"Patient Facts Summary:\nChief Complaint: What is formin associated with in the snail?\nSex: UNKNOWN\n- formin (Present)","evidence_supported_observations":"No observations verified as fully supported by retrieved evidence.","potential_considerations":"[OMITTED DUE TO ABSTENTION] Unverified diagnostic considerations suppressed for safety.","alternative_explanations":"[OMITTED DUE TO ABSTENTION] Suppressed for safety.","missing_information":"Missing Clinical Information:\n- No specific missing fields documented.","recommended_evidence_review_steps":"Suggested Next Steps:\n- Conduct thorough clinical assessment; this decision-support tool has abstained from providing differential considerations.\n- Verify documented patient history and physical examination findings.\n- Consult specialist literature or institutional clinical protocols independently.","abstention_decision":"Abstained: True\nReason Codes: UNSUPPORTED_MATERIAL_CLAIMS, ITERATION_BUDGET_EXHAUSTED\nExplanation: Optimizer iteration requested: 1 unsupported safety-critical claims and 0 contradicted material claims."},"_origin":"REAL_STRUCTURE_SCRIPTED_LLM_CONTENT"},"_origin_summary":{"timeline":"REAL","retrieval":"REAL","numeric_veto":"REAL","optimizer_iterations":"REAL","gate_decision":"REAL","abstention":"REAL","claim_text_with_99":"SCRIPTED","entailment_judgment":"SCRIPTED"}},{"scenario":"C","title":"URGENT + NO EVIDENCE PATH \u2014 Pre-analysis urgent banner \u2192 0 relevant passages \u2192 ABSTAINED","question":"[SYNTHETIC] 62-year-old patient presenting with acute substernal chest pain with shortness of breath and diaphoresis.","is_benchmark":false,"elapsed_s":1.75,"workflow_status":"ABSTAINED","final_state":"ABSTAINED","urgent_banner":"Possible urgent presentation: do not delay appropriate urgent human assessment","urgent_pre_analysis":{"is_urgent":true,"matched_rule_names":["chest_pain_with_dyspnea"],"banner_text":"Possible urgent presentation: do not delay appropriate urgent human assessment","_origin":"REAL"},"timeline":[{"node":"validate_case","status":"COMPLETED","duration_ms":21,"note":"Case submission validated (len=117)","_origin":"REAL"},{"node":"clinical_text_clarifier","status":"COMPLETED","duration_ms":53,"note":"Extracted 2 symptoms","_origin":"REAL"},{"node":"symptom_rag_analyzer","status":"COMPLETED","duration_ms":1377,"note":"Retrieved 10 passages","_origin":"REAL"},{"node":"evidence_based_scanner","status":"COMPLETED","duration_ms":20,"note":"External passages: 0","_origin":"REAL"},{"node":"clinical_data_fusion","status":"COMPLETED","duration_ms":34,"note":"Report version 1 generated","_origin":"REAL"},{"node":"claim_verification","status":"COMPLETED","duration_ms":19,"note":"Verified 0 claims","_origin":"REAL"},{"node":"adaptive_optimizer","status":"COMPLETED","duration_ms":30,"note":"Selected STOP","_origin":"REAL"}],"claims":[],"retrieved_evidence":[{"evidence_id":"ev:bioasq:E004194:0","retrieval_score":0.55030656,"rank":1,"source":"BIOASQ","title":"UNKNOWN","text_preview":"Clinical features were those of LES and occurred insidiously in this 68-year old man: proximal weakness predominant in the lower limbs, generalized areflexia, dryness of the mouth and partial right ey","corpus_version":"7a7ada40597bc7f944bfb4a3aac4561f49897580df9f61a6e8b5de1c3c38933f_pritamdeka/BioBERT-mnli-snli-scinli-scitail-mednli-stsb_v777","embedding_model":"pritamdeka/BioBERT-mnli-snli-scinli-scitail-mednli-stsb","_origin":"REAL"},{"evidence_id":"ev:bioasq:E069353:0","retrieval_score":0.4397908,"rank":2,"source":"BIOASQ","title":"UNKNOWN","text_preview":"Ankylosing spondylitis (AS) is an inflammatory rheumatic disorder which mainly involves the axial skeleton. The most important clinical features are: inflammatory back pain and peripheral joint involv","corpus_version":"7a7ada40597bc7f944bfb4a3aac4561f49897580df9f61a6e8b5de1c3c38933f_pritamdeka/BioBERT-mnli-snli-scinli-scitail-mednli-stsb_v777","embedding_model":"pritamdeka/BioBERT-mnli-snli-scinli-scitail-mednli-stsb","_origin":"REAL"},{"evidence_id":"ev:bioasq:E014446:0","retrieval_score":0.4247661,"rank":3,"source":"BIOASQ","title":"UNKNOWN","text_preview":"Non-invasive measurement of pulmonary blood flow during prone positioning in patients with early acute respiratory distress syndrome.","corpus_version":"7a7ada40597bc7f944bfb4a3aac4561f49897580df9f61a6e8b5de1c3c38933f_pritamdeka/BioBERT-mnli-snli-scinli-scitail-mednli-stsb_v777","embedding_model":"pritamdeka/BioBERT-mnli-snli-scinli-scitail-mednli-stsb","_origin":"REAL"},{"evidence_id":"ev:bioasq:E067761:1","retrieval_score":0.42410862,"rank":4,"source":"BIOASQ","title":"UNKNOWN","text_preview":": although chest radiographs are essential in the investigation of suspected pe, their main value is to exclude diagnoses that clinically mimic pe and to aid in the interpretation of the ventilation -","corpus_version":"7a7ada40597bc7f944bfb4a3aac4561f49897580df9f61a6e8b5de1c3c38933f_pritamdeka/BioBERT-mnli-snli-scinli-scitail-mednli-stsb_v777","embedding_model":"pritamdeka/BioBERT-mnli-snli-scinli-scitail-mednli-stsb","_origin":"REAL"},{"evidence_id":"ev:bioasq:E032152:0","retrieval_score":0.4184096,"rank":5,"source":"BIOASQ","title":"UNKNOWN","text_preview":"a 75 - year - old woman presented with altered mental status, septic picture, and influenza - like symptoms. initial investigations revealed atypical lymphocytosis, thrombocytopenia, elevated liver en","corpus_version":"7a7ada40597bc7f944bfb4a3aac4561f49897580df9f61a6e8b5de1c3c38933f_pritamdeka/BioBERT-mnli-snli-scinli-scitail-mednli-stsb_v777","embedding_model":"pritamdeka/BioBERT-mnli-snli-scinli-scitail-mednli-stsb","_origin":"REAL"}],"gate":{"outcome":"finalize_abstain","rule_triggered":4,"reason_codes":["UNSUPPORTED_MATERIAL_CLAIMS"],"explanation":"Gate Rule 4: fewer than MIN_RELEVANT_PASSAGES passages above threshold.","_origin":"REAL"},"abstention":{"abstained":true,"reason_codes":["UNSUPPORTED_MATERIAL_CLAIMS"],"explanation":"Optimizer iteration requested: only 1 relevant passages (minimum required: 2). Alternative queries available.","affected_claim_ids":[],"affected_sections":[],"missing_evidence":[],"suggested_next_steps":["Conduct thorough clinical assessment; this decision-support tool has abstained from providing differential considerations.","Verify documented patient history and physical examination findings.","Consult specialist literature or institutional clinical protocols independently."],"_origin":"REAL"},"iterations":[{"iteration_number":1,"node_selected":"STOP","confidence_before":0.8,"confidence_after":null,"action_taken":"CONDITION_MET: Confidence score 0.800 meets threshold 0.65. Instruction: Revising candidate clinical considerations against literature evidence.","_origin":"REAL"}],"provenance_edges":[],"clinical_note":"[SYNTHETIC] case only. No clinical guidance is presented. System terminates safely.","_origin_summary":{"timeline":"REAL","urgent_detection":"REAL","retrieval":"REAL","gate_decision":"REAL","abstention":"REAL","case_text":"SYNTHETIC_DEMO_NOT_REAL_PATIENT"}},{"scenario":"D","title":"HITL REVIEW & AUDIT PATH \u2014 RBAC enforcement, clinician review, append-only audit","case_id":"554bc062-36aa-464f-ab8f-4f08dcd675c4","report_version_id":"a464226f-6f49-4ced-b30a-e5a14cf69a35","users":{"clinician":"clinician_demo@clinexus.local (role: clinician_reviewer)","viewer":"viewer_demo@clinexus.local (role: viewer)","note":"Passwords loaded from environment variables, hashed with Argon2id, never printed.","_origin":"REAL"},"rbac_rejection":{"attempted_action":"MARK_REVIEWED","attempted_role":"viewer","rejection_message":"Role 'viewer' is not authorized to execute action 'MARK_REVIEWED'. Review actions require 'clinician_reviewer' or 'admin' role.","_origin":"REAL"},"clinician_review":{"action":"MARK_REVIEWED","outcome":"Reviewed by clinician","note":"[HUMAN] Literature evidence on left-right asymmetry confirmed.","case_status_after":"REVIEWED","note_label":"[HUMAN]","_origin":"REAL"},"append_only_verification":{"total_reviews":2,"reviews":[{"action":"MARK_REVIEWED","outcome":"Reviewed by clinician","note":"[HUMAN] Literature evidence on left-right asymmetry confirmed.","reviewer_role":"clinician_reviewer","is_human":true,"_origin":"REAL"},{"action":"ADD_NOTE","outcome":"Clinician note recorded","note":"[HUMAN] Additional note: Embryonic phenotype confirmed in snail model.","reviewer_role":"clinician_reviewer","is_human":true,"_origin":"REAL"}],"note":"Append-only verified: earlier review preserved, not overwritten.","_origin":"REAL"},"invalid_transition":{"attempted":"REVIEWED \u2192 DRAFT","rejection_message":"Invalid state transition from 'REVIEWED' to 'DRAFT'. Strictly prohibited by SPEC 5.4 review state machine.","note":"Pure state machine: only valid transitions in table are permitted.","_origin":"REAL"},"audit_trail":[{"event_type":"CASE_STATE_CHANGED","actor_role":"system","resource_type":"clinical_case","resource_id":"554bc062-36aa-464f-ab8f-4f08dcd675c4","timestamp":"2026-10-30T19:49:10.466902+00:00","payload":{"case_id":"554bc062-36aa-464f-ab8f-4f08dcd675c4","from_state":"DRAFT","to_state":"ANALYZING","report_version_id":null,"reason":"Starting multi-agent clinical workflow execution"},"is_human":false,"_origin":"REAL"},{"event_type":"CASE_STATE_CHANGED","actor_role":"system","resource_type":"clinical_case","resource_id":"554bc062-36aa-464f-ab8f-4f08dcd675c4","timestamp":"2026-10-30T19:49:12.513160+00:00","payload":{"case_id":"554bc062-36aa-464f-ab8f-4f08dcd675c4","from_state":"ANALYZING","to_state":"READY_FOR_REVIEW","report_version_id":"a464226f-6f49-4ced-b30a-e5a14cf69a35","reason":"Passed safety gate checks and provenance completeness verification"},"is_human":false,"_origin":"REAL"},{"event_type":"CASE_STATE_CHANGED","actor_role":"clinician_reviewer","resource_type":"clinical_case","resource_id":"554bc062-36aa-464f-ab8f-4f08dcd675c4","timestamp":"2026-10-30T19:49:16.880515+00:00","payload":{"case_id":"554bc062-36aa-464f-ab8f-4f08dcd675c4","from_state":"READY_FOR_REVIEW","to_state":"REVIEWED","report_version_id":"a464226f-6f49-4ced-b30a-e5a14cf69a35","reason":"Reviewed by clinician"},"is_human":false,"_origin":"REAL"},{"event_type":"HUMAN_REVIEW_RECORDED","actor_role":"clinician_reviewer","resource_type":"report_version","resource_id":"a464226f-6f49-4ced-b30a-e5a14cf69a35","timestamp":"2026-10-30T19:49:16.902648+00:00","payload":{"case_id":"554bc062-36aa-464f-ab8f-4f08dcd675c4","review_id":"2445e8f5-50e9-4822-bacd-57233c7b634d","action":"MARK_REVIEWED","outcome":"Reviewed by clinician","has_note":true},"is_human":true,"_origin":"REAL"},{"event_type":"HUMAN_REVIEW_RECORDED","actor_role":"clinician_reviewer","resource_type":"report_version","resource_id":"a464226f-6f49-4ced-b30a-e5a14cf69a35","timestamp":"2026-10-30T19:49:16.936391+00:00","payload":{"case_id":"554bc062-36aa-464f-ab8f-4f08dcd675c4","review_id":"8fe9de99-99c3-43e3-ba80-36e714d74e95","action":"ADD_NOTE","outcome":"Clinician note recorded","has_note":true},"is_human":true,"_origin":"REAL"}],"_origin_summary":{"users":"REAL","rbac":"REAL","review_actions":"REAL","audit_events":"REAL","state_machine":"REAL"}}]};
+
+  
+    function showScenario(sid) {
+      document.querySelectorAll(".scenario-panel").forEach(function(p) {
+        p.hidden = true;
+      });
+      document.querySelectorAll(".tab-btn").forEach(function(b) {
+        b.classList.remove("active");
+        b.setAttribute("aria-selected", "false");
+      });
+      var panel = document.getElementById("panel-" + sid);
+      if (panel) { panel.hidden = false; }
+      var btn = document.getElementById("tab-btn-" + sid);
+      if (btn) {
+        btn.classList.add("active");
+        btn.setAttribute("aria-selected", "true");
+      }
+    }
+
+    function toggleClaimDetail(claimId) {
+      var row = document.getElementById("claim-detail-" + claimId);
+      if (!row) return;
+      var parentRow = row.previousElementSibling;
+      var expanded = !row.hidden;
+      row.hidden = expanded;
+      if (parentRow) {
+        parentRow.setAttribute("aria-expanded", String(!expanded));
+      }
+    }
+    
+
+  // Initialise on load
+  document.addEventListener("DOMContentLoaded", function() {
+    const firstId = DEMO_DATA.scenarios.length > 0 ? DEMO_DATA.scenarios[0].scenario : "A";
+    showScenario(firstId);
+  });
+  </script>
+</body>
+</html>
