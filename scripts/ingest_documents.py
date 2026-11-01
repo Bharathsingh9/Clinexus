@@ -7,7 +7,12 @@ Specification Section 9.3, Section 12 (Req ID: RET-1, DB-2).
 import argparse
 import json
 import logging
+import os
 import sys
+
+# Ensure repository root is on sys.path
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
 from backend.app.core.logging_config import setup_logging
 from backend.app.ingestion.pipeline import IngestionPipeline
 

@@ -2,7 +2,7 @@
 
 Specification Section 4.3, Appendix A2, A5, A9:
 - Input: ClinicalCase, RetrievedEvidenceSet, optional gap_hints.
-- Output: ExternalEvidenceSet (or AgentExecutionRecord if FAILED with LLM_UNAVAILABLE).
+- Output: ExternalEvidenceSet (or AgentExecutionRecord if FAILED on network/client errors).
 - Per-Hypothesis Scanning: builds one focused PubMed query per CandidateHypothesis plus gap queries.
 - In benchmark mode or when candidate hypotheses are empty, executes gap queries.
 - Sequential execution on candidate hypotheses and gaps (App A2).
@@ -13,7 +13,7 @@ Specification Section 4.3, Appendix A2, A5, A9:
 - Deduplicates against local evidence by PMID, DOI, and text hash.
 - Per-query statuses: OK | EMPTY | TIMEOUT | RATE_LIMITED | MALFORMED | UNAVAILABLE | SKIPPED_OFFLINE.
 - Offline mode: when EXTERNAL_MODE="offline", returns SKIPPED_OFFLINE and makes zero network calls.
-- In online mode, if no LLM provider is configured, returns FAILED with error_code LLM_UNAVAILABLE.
+- Deterministic query generation: does not require an LLM provider.
 """
 
 from datetime import datetime, timezone
@@ -118,18 +118,9 @@ class EvidenceBasedScanner:
                 summary="External scanning was skipped because EXTERNAL_MODE is set to offline.",
             )
 
-        # 2. Invariant: If online, no silent fallbacks. Unconfigured LLM provider returns FAILED(LLM_UNAVAILABLE).
-        if self.llm_provider is None or settings.LLM_PROVIDER in (None, "", "none"):
-            return AgentExecutionRecord(
-                agent_name="evidence_based_scanner",
-                status=AgentStatusEnum.FAILED,
-                error_code="LLM_UNAVAILABLE",
-                error_message="LLM provider is not configured (LLM_PROVIDER unset or 'none'). Real LLM calls are blocked.",
-                input_summary=f"Clinical case (age={case.age}, symptoms={len(case.structured_symptoms)})",
-                output_summary=None,
-            )
-
-        # 3. Construct Queries: per-hypothesis queries + gap queries (App A5)
+        # 2. Construct Queries: per-hypothesis queries + gap queries (App A5)
+        # Note: Query formulation is 100% deterministic (regex and string templates).
+        # No LLM calls are made or required for external literature scanning.
         queries_to_run: List[Tuple[str, str]] = []  # (query_id, query_string)
 
         hypotheses = retrieved_evidence.candidate_hypotheses if retrieved_evidence else []

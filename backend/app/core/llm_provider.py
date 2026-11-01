@@ -57,3 +57,33 @@ class LLMProvider(Protocol):
             Instance of the specified schema model.
         """
         ...
+
+
+def create_llm_provider(settings_obj=None) -> Optional[LLMProvider]:
+    """Factory creating configured LLMProvider based on LLM_PROVIDER setting.
+
+    Selected when LLM_PROVIDER=gemini.
+    Raises LLMAuthError if LLM_PROVIDER=gemini and LLM_API_KEY is unset.
+    Returns None if LLM_PROVIDER is 'none' or 'fake'.
+    """
+    if settings_obj is None:
+        from backend.app.core.config import settings as default_settings
+        settings_obj = default_settings
+
+    provider_name = (settings_obj.LLM_PROVIDER or "").strip().lower()
+    if provider_name == "gemini":
+        from backend.app.core.gemini_provider import GeminiProvider
+        from backend.app.core.llm_exceptions import LLMAuthError
+
+        if not settings_obj.LLM_API_KEY:
+            raise LLMAuthError("LLM_API_KEY is required when LLM_PROVIDER=gemini")
+        return GeminiProvider(
+            api_key=settings_obj.LLM_API_KEY,
+            default_model=settings_obj.LLM_MODEL,
+            timeout_s=settings_obj.HTTP_TIMEOUT_S,
+            max_retries=settings_obj.HTTP_MAX_RETRIES,
+            requests_per_minute=settings_obj.LLM_REQUESTS_PER_MINUTE,
+            max_output_tokens=settings_obj.LLM_MAX_OUTPUT_TOKENS,
+            eval_max_llm_calls=settings_obj.EVAL_MAX_LLM_CALLS,
+        )
+    return None

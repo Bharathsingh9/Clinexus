@@ -25,6 +25,7 @@ Thumbs.db
 node_modules/
 .pytest_cache/
 *.log
+logs/
 qdrant_storage/
 dist/
 build/

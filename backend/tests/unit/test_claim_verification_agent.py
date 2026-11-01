@@ -22,7 +22,7 @@ import pytest
 
 from backend.app.agents.claim_verification_agent import ClaimVerificationAgent
 from backend.app.schemas.clinical_case import ClinicalCase, SourceSpan
-from backend.app.schemas.evidence import EvidenceChunk
+from backend.app.schemas.evidence import EvidenceChunk, RetrievedPassageResult
 from backend.app.schemas.executions import AgentStatusEnum
 from backend.app.schemas.reports import (
     CandidateClaim,
@@ -291,3 +291,132 @@ def test_verifier_bounded_retry_then_unverifiable():
     v = verifs[0]
     assert v.status == ClaimVerificationStatusEnum.UNVERIFIABLE
     assert v.limitations == "VERIFIER_ERROR"
+
+
+def test_unretrieved_evidence_id_yields_unverifiable_citation_not_found():
+    """(a) A claim citing an evidence ID that is NOT in this run's evidence sets
+    (even if it represents a valid ID format or exists elsewhere in the database)
+    strictly gets UNVERIFIABLE with limitations=CITATION_NOT_FOUND without calling LLM.
+    """
+    class ExplodingLLM(FakeLLMProvider):
+        def generate_text(self, *args, **kwargs):
+            raise AssertionError("LLM should not be called when citations are unretrieved!")
+
+    agent = ClaimVerificationAgent(llm_provider=ExplodingLLM())
+    # ev:bioasq:111001:0 is a valid ID that exists in synthetic corpus / DB, but was not retrieved in this run
+    claim = CandidateClaim(
+        report_version_id="rv-1",
+        claim_text="Patient presents with documented consolidation.",
+        section="evidence_supported_observations",
+        cited_evidence_ids=["ev:bioasq:111001:0"],
+    )
+    report = _make_report([claim])
+    # This run's retrieved evidence set only contains a different passage
+    retrieved_chunk = _make_chunk("ev:bioasq:222002:0", "[SYNTHETIC] Different passage text.")
+
+    verifs = agent.run(report=report, evidence_passages=[retrieved_chunk])
+    assert isinstance(verifs, list)
+    assert len(verifs) == 1
+    assert verifs[0].status == ClaimVerificationStatusEnum.UNVERIFIABLE
+    assert verifs[0].limitations == "CITATION_NOT_FOUND"
+    assert verifs[0].method == VerificationMethodEnum.DETERMINISTIC
+
+
+def test_duplicate_group_member_resolves_to_primary_passage():
+    """(b) A claim citing a member of a duplicate group that WAS retrieved in this run
+    resolves to the primary passage and is verified against that passage text.
+    """
+    fake_output = json.dumps({
+        "status": "SUPPORTED",
+        "justification": "Directly grounded in duplicate group primary text.",
+        "passage_index": 0,
+        "span_start": 12,
+        "span_end": 48,
+    })
+    fake_llm = FakeLLMProvider(default_text=fake_output)
+    agent = ClaimVerificationAgent(llm_provider=fake_llm)
+
+    primary_passage = RetrievedPassageResult(
+        evidence_id="ev:bioasq:SYNTH005:0",
+        document_id="doc-synth-5",
+        chunk_id="chk-synth-5",
+        title="Respiratory Study",
+        source="BIOASQ",
+        publication_date="2022",
+        source_location="abstract",
+        retrieval_score=0.92,
+        rank=1,
+        corpus_version="v1",
+        embedding_model="biobert",
+        query_id="q-1",
+        evidence_level="Review",
+        text="[SYNTHETIC] Fever and persistent dry cough are characteristic symptoms.",
+        duplicate_evidence_ids=["ev:bioasq:SYNTH005:0", "ev:bioasq:SYNTH001:0"],
+    )
+
+    # Claim cites the duplicate group member SYNTH001 (not SYNTH005)
+    claim = CandidateClaim(
+        report_version_id="rv-1",
+        claim_text="Fever and persistent dry cough are characteristic symptoms.",
+        section="evidence_supported_observations",
+        cited_evidence_ids=["ev:bioasq:SYNTH001:0"],
+    )
+    report = _make_report([claim])
+
+    verifs = agent.run(report=report, evidence_passages=[primary_passage])
+    assert isinstance(verifs, list)
+    assert len(verifs) == 1
+    v = verifs[0]
+    # Successfully resolves to primary passage: verified as SUPPORTED, NOT CITATION_NOT_FOUND
+    assert v.status == ClaimVerificationStatusEnum.SUPPORTED
+    assert v.limitations is None
+    assert len(v.evidence_spans) == 1
+    assert v.evidence_spans[0].start == 12
+    assert v.evidence_spans[0].end == 48
+
+
+def test_duplicate_group_member_rejected_if_group_not_retrieved():
+    """(c) A duplicate-group member is NEVER accepted if the duplicate group itself was not retrieved in this run."""
+    class ExplodingLLM(FakeLLMProvider):
+        def generate_text(self, *args, **kwargs):
+            raise AssertionError("LLM should not be called when group was not retrieved!")
+
+    agent = ClaimVerificationAgent(llm_provider=ExplodingLLM())
+
+    # A retrieved passage with a duplicate group that does NOT include SYNTH001
+    unrelated_passage = RetrievedPassageResult(
+        evidence_id="ev:bioasq:SYNTH002:0",
+        document_id="doc-synth-2",
+        chunk_id="chk-synth-2",
+        title="Cardiology Study",
+        source="BIOASQ",
+        publication_date="2022",
+        source_location="abstract",
+        retrieval_score=0.88,
+        rank=1,
+        corpus_version="v1",
+        embedding_model="biobert",
+        query_id="q-1",
+        evidence_level="Review",
+        text="[SYNTHETIC] Dyspnea on exertion requires ECG assessment.",
+        duplicate_evidence_ids=["ev:bioasq:SYNTH002:0", "ev:bioasq:SYNTH003:0"],
+    )
+
+    # Claim cites SYNTH001, which is not in this run's retrieved group
+    claim = CandidateClaim(
+        report_version_id="rv-1",
+        claim_text="Fever and persistent dry cough are characteristic symptoms.",
+        section="evidence_supported_observations",
+        cited_evidence_ids=["ev:bioasq:SYNTH001:0"],
+    )
+    report = _make_report([claim])
+
+    verifs = agent.run(report=report, evidence_passages=[unrelated_passage])
+    assert isinstance(verifs, list)
+    assert len(verifs) == 1
+    v = verifs[0]
+    # Group was not retrieved -> rejected with CITATION_NOT_FOUND
+    assert v.status == ClaimVerificationStatusEnum.UNVERIFIABLE
+    assert v.limitations == "CITATION_NOT_FOUND"
+    assert v.method == VerificationMethodEnum.DETERMINISTIC
+

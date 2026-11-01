@@ -43,9 +43,28 @@ class Settings(BaseSettings):
     EMBED_BATCH_SIZE: int = 32
 
     # LLM Provider & Per-Agent Models (SPEC Section 2, Appendix A7)
-    LLM_PROVIDER: str = Field(default="fake", description="fake | openai | anthropic | gemini")
+    LLM_PROVIDER: str = Field(default="fake", description="fake | none | gemini")
     LLM_API_KEY: Optional[str] = None
     LLM_MODEL: str = Field(default="fake-model", description="Base default model")
+    LLM_REQUESTS_PER_MINUTE: int = Field(
+        default=10,
+        gt=0,
+        description=(
+            "Client-side rate limiter for LLM calls. "
+            "Adjust to the provider's real limit (e.g. 15 for Gemini free tier)."
+        ),
+    )
+    EVAL_MAX_LLM_CALLS: Optional[int] = Field(
+        default=None,
+        description=(
+            "Hard cap on LLM calls per evaluation run. "
+            "Unset = no cap outside evaluation runs."
+        ),
+    )
+    LLM_MAX_OUTPUT_TOKENS: Optional[int] = Field(
+        default=None,
+        description="Maximum output tokens for LLM completions.",
+    )
     LLM_MODEL_CLARIFIER: Optional[str] = None
     LLM_MODEL_RAG: Optional[str] = None
     LLM_MODEL_SCANNER: Optional[str] = None
@@ -120,6 +139,25 @@ class Settings(BaseSettings):
             )
         if v < 1:
             raise ValueError(f"MAX_OPTIMIZER_ITERATIONS must be >= 1, got {v}")
+        return v
+
+    @field_validator("LLM_PROVIDER")
+    @classmethod
+    def validate_llm_provider(cls, v: str) -> str:
+        clean_v = v.strip().lower()
+        allowed = {"fake", "none", "gemini"}
+        if clean_v not in allowed:
+            raise ValueError(
+                f"LLM_PROVIDER must be one of {sorted(allowed)}, got '{v}'. "
+                f"Other providers are not yet implemented."
+            )
+        return clean_v
+
+    @field_validator("EVAL_MAX_LLM_CALLS")
+    @classmethod
+    def validate_eval_max_llm_calls(cls, v: Optional[int]) -> Optional[int]:
+        if v is not None and v <= 0:
+            raise ValueError(f"EVAL_MAX_LLM_CALLS must be > 0 when set, got {v}")
         return v
 
     @field_validator("EXTERNAL_MODE")

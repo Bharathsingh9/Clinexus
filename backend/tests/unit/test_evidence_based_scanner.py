@@ -2,7 +2,7 @@
 
 Specification Section 4.3, Appendix A2, A5, A9:
 - Offline mode returns SKIPPED_OFFLINE without requiring LLM or network.
-- Without LLM provider in online mode, returns FAILED with LLM_UNAVAILABLE.
+- Deterministic agent in online mode succeeds without requiring an LLM provider.
 - Formulates per-hypothesis PubMed queries and gap queries.
 - Deduplicates against local evidence.
 - Records without abstracts (abstract_missing=True) excluded from passages.
@@ -23,6 +23,7 @@ from backend.app.schemas.clinical_case import (
 )
 from backend.app.schemas.evidence import (
     EvidenceDocument,
+    ExternalEvidenceSet,
     QueryStatusEnum,
     RetrievedEvidenceSet,
     RetrievedPassageResult,
@@ -75,16 +76,16 @@ def test_scanner_offline_mode_returns_skipped_offline_without_llm():
     assert len(fake_ncbi.calls) == 0
 
 
-def test_scanner_returns_llm_unavailable_when_online_without_provider():
-    """In online mode, running without an LLM provider must return FAILED with LLM_UNAVAILABLE."""
+def test_scanner_online_mode_succeeds_without_llm_provider():
+    """In online mode, a deterministic scanner operates without requiring an LLM provider."""
     fake_ncbi = FakeNCBIClient(offline=False)
     scanner = EvidenceBasedScanner(ncbi_client=fake_ncbi, llm_provider=None)
 
     case = make_test_case()
     result = scanner.run(case)
 
-    assert result.status == AgentStatusEnum.FAILED
-    assert result.error_code == "LLM_UNAVAILABLE"
+    assert isinstance(result, ExternalEvidenceSet)
+    assert len(fake_ncbi.calls) > 0
 
 
 def test_scanner_builds_hypothesis_and_gap_queries_and_chunks():

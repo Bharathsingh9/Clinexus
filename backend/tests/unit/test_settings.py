@@ -25,7 +25,15 @@ def test_default_settings():
 
 def test_per_agent_model_defaults():
     """Verify per-agent model settings default to LLM_MODEL (SPEC App A7)."""
-    cfg = Settings(LLM_MODEL="custom-base-model")
+    cfg = Settings(
+        LLM_MODEL="custom-base-model",
+        LLM_MODEL_CLARIFIER=None,
+        LLM_MODEL_RAG=None,
+        LLM_MODEL_SCANNER=None,
+        LLM_MODEL_FUSION=None,
+        LLM_MODEL_OPTIMIZER=None,
+        VERIFIER_MODEL=None,
+    )
     assert cfg.LLM_MODEL_CLARIFIER == "custom-base-model"
     assert cfg.LLM_MODEL_RAG == "custom-base-model"
     assert cfg.LLM_MODEL_SCANNER == "custom-base-model"
@@ -125,3 +133,12 @@ def test_confidence_weights_sum_validation():
             CONF_WEIGHT_SOURCE_AVAILABILITY=0.15,
             CONF_WEIGHT_INFO_COMPLETENESS=0.20,
         )
+
+
+def test_setup_logging_alias_and_import():
+    """Regression test: verify setup_logging alias exists and configures clinexus logger."""
+    from backend.app.core.logging_config import setup_logging, configure_logging
+    assert setup_logging is configure_logging
+    log = setup_logging()
+    assert log.name == "clinexus"
+

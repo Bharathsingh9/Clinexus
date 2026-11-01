@@ -19,6 +19,7 @@ from typing import Any, Dict, List, Optional, Set, Union
 import uuid
 from sqlalchemy import select
 from backend.app.core.config import settings
+from backend.app.core.llm_exceptions import LLMProviderError
 from backend.app.core.llm_provider import LLMProvider
 from backend.app.schemas.executions import AgentExecutionRecord, AgentStatusEnum
 from backend.app.persistence.database import SessionLocal
@@ -180,6 +181,8 @@ class SymptomRAGAnalyzer:
                                     retrieval_scores=scores,
                                 )
                             )
+            except LLMProviderError:
+                raise
             except Exception as exc:
                 logger.warning("LLM hypothesis generation failed (%s). Leaving hypotheses empty.", exc)
 
@@ -337,11 +340,21 @@ class SymptomRAGAnalyzer:
         valid_ev_ids = {p.evidence_id for p in deduped}
         candidate_hypotheses: List[CandidateHypothesis] = []
         if not benchmark_mode and not insufficient:
-            candidate_hypotheses = self._generate_candidate_hypotheses(
-                case=case,
-                passages=deduped,
-                valid_ev_ids=valid_ev_ids,
-            )
+            try:
+                candidate_hypotheses = self._generate_candidate_hypotheses(
+                    case=case,
+                    passages=deduped,
+                    valid_ev_ids=valid_ev_ids,
+                )
+            except LLMProviderError as exc:
+                return AgentExecutionRecord(
+                    agent_name="symptom_rag_analyzer",
+                    status=AgentStatusEnum.FAILED,
+                    error_code=exc.error_code,
+                    error_message=f"LLM hypothesis generation failed: {type(exc).__name__}",
+                    input_summary=f"Clinical case (age={case.age}, sex={case.sex}, symptoms={len(case.structured_symptoms)})",
+                    output_summary=None,
+                )
 
         # Step 7: Retrieval Summary with verified citations
         summary = self._build_and_verify_summary(deduped)

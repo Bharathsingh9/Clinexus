@@ -169,3 +169,9 @@ A11. Evaluation decisions (before Phase 5)
 - Each final evaluation configuration runs on the eval split once; all tuning uses dev.
 - A hard cap on LLM calls per evaluation run (setting EVAL_MAX_LLM_CALLS). When reached, the run stops, writes a partial result labeled PARTIAL, and never reports it as a full result.
 - The first real LLM run is smoke30 only; token usage is recorded; larger runs start only after I approve the smoke30 results.
+A12. Corrections and rules after Phase 5 Stage A
+- Document count: the corpus has 48,949 distinct raw URLs and 48,807 distinct PMIDs after URL normalization. One EvidenceDocument per PMID, so 48,807 (this supersedes the 48,949 in SPEC 9.3).
+- short_passage count is 1,637 passages (1,621 short source rows plus short chunk fragments).
+- The 30 smoke questions are assigned to the dev split, and never to eval, because the first real LLM runs use them for prompt and setting checks.
+- Evaluation tests use only [SYNTHETIC] fixtures; checks on the real data run as audit reports, not as tests.
+- Integration and unit tests must never use the main database or the main Qdrant collection. They use a separate test database and collection prefix.

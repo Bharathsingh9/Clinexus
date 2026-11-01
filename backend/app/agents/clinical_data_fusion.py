@@ -208,9 +208,35 @@ class ClinicalDataFusion:
             "reports adhering to strict safety constraints: NO treatment guidance, NO dosing, NO prescriptions."
         )
 
+        from backend.app.core.llm_exceptions import LLMProviderError, LLMInvalidResponse
+
         try:
             raw_response = self._invoke_llm(prompt=prompt, system=system_prompt)
             data = json.loads(raw_response.strip())
+        except LLMProviderError as exc:
+            if not isinstance(exc, LLMInvalidResponse):
+                return AgentExecutionRecord(
+                    agent_name="clinical_data_fusion",
+                    status=AgentStatusEnum.FAILED,
+                    error_code=exc.error_code,
+                    error_message=f"LLM fusion call failed: {type(exc).__name__}",
+                    input_summary=f"Clinical case (case_id={cid})",
+                )
+            logger.warning("LLM fusion extraction attempt 1 invalid response (%s). Retrying repair...", exc)
+            repair_prompt = f"Previous output was invalid JSON. Reformat into valid JSON with 'sections' and 'claims':\n{prompt}"
+            try:
+                raw_response = self._invoke_llm(prompt=repair_prompt, system=system_prompt)
+                data = json.loads(raw_response.strip())
+            except Exception as exc2:
+                logger.error("LLM fusion repair failed: %s", exc2)
+                err_code = exc2.error_code if isinstance(exc2, LLMProviderError) else "LLM_INVALID_RESPONSE"
+                return AgentExecutionRecord(
+                    agent_name="clinical_data_fusion",
+                    status=AgentStatusEnum.FAILED,
+                    error_code=err_code,
+                    error_message=f"Failed to obtain valid JSON from LLM: {exc2}",
+                    input_summary=f"Clinical case (case_id={cid})",
+                )
         except Exception as exc:
             logger.warning("LLM fusion extraction attempt 1 failed (%s). Retrying repair...", exc)
             repair_prompt = f"Previous output was invalid JSON. Reformat into valid JSON with 'sections' and 'claims':\n{prompt}"
@@ -219,10 +245,11 @@ class ClinicalDataFusion:
                 data = json.loads(raw_response.strip())
             except Exception as exc2:
                 logger.error("LLM fusion repair failed: %s", exc2)
+                err_code = exc2.error_code if isinstance(exc2, LLMProviderError) else "INVALID_LLM_OUTPUT"
                 return AgentExecutionRecord(
                     agent_name="clinical_data_fusion",
                     status=AgentStatusEnum.FAILED,
-                    error_code="INVALID_LLM_OUTPUT",
+                    error_code=err_code,
                     error_message=f"Failed to obtain valid JSON from LLM: {exc2}",
                     input_summary=f"Clinical case (case_id={cid})",
                 )

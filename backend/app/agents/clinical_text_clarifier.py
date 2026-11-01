@@ -25,6 +25,7 @@ import re
 from typing import Any, Dict, List, Optional, Tuple, Union
 import uuid
 from backend.app.core.config import settings
+from backend.app.core.llm_exceptions import LLMInvalidResponse, LLMProviderError
 from backend.app.core.llm_provider import LLMProvider
 from backend.app.schemas.executions import AgentExecutionRecord, AgentStatusEnum
 from backend.app.schemas.clinical_case import (
@@ -166,7 +167,11 @@ class ClinicalTextClarifier:
         try:
             response = self._invoke_llm(prompt=prompt, system=system_prompt)
             return json.loads(response.strip())
-        except (json.JSONDecodeError, Exception) as err1:
+        except (json.JSONDecodeError, LLMInvalidResponse) as err1:
+            logger.warning("LLM extraction attempt 1 failed (%s). Retrying repair...", err1)
+        except LLMProviderError:
+            raise
+        except Exception as err1:
             logger.warning("LLM extraction attempt 1 failed (%s). Retrying repair...", err1)
 
         # Attempt 2 (Repair retry)
@@ -177,6 +182,8 @@ class ClinicalTextClarifier:
         try:
             response2 = self._invoke_llm(prompt=repair_prompt, system=system_prompt)
             return json.loads(response2.strip())
+        except LLMProviderError:
+            raise
         except Exception as err2:
             logger.error("LLM extraction attempt 2 failed (%s). Raising FAILED(INVALID_LLM_OUTPUT).", err2)
             raise ValueError(f"FAILED: INVALID_LLM_OUTPUT - {err2}")
@@ -198,7 +205,17 @@ class ClinicalTextClarifier:
             )
 
         # Step 1: Extraction via LLM
-        extracted_data = self._call_llm_with_retry(raw_text)
+        try:
+            extracted_data = self._call_llm_with_retry(raw_text)
+        except LLMProviderError as exc:
+            return AgentExecutionRecord(
+                agent_name="clinical_text_clarifier",
+                status=AgentStatusEnum.FAILED,
+                error_code=exc.error_code,
+                error_message=f"LLM extraction failed: {type(exc).__name__}",
+                input_summary=f"Case submission (length={len(raw_text)})",
+                output_summary=None,
+            )
 
         age = extracted_data.get("age")
         age_missing_reason = None

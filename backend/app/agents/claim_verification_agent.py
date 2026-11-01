@@ -31,6 +31,7 @@ from typing import Any, Dict, List, Optional, Set, Tuple, Union
 import uuid
 
 from backend.app.core.config import settings
+from backend.app.core.llm_exceptions import LLMInvalidResponse, LLMProviderError
 from backend.app.core.llm_provider import LLMProvider
 from backend.app.persistence.execution_repository import ExecutionRepository
 from backend.app.schemas.clinical_case import ClinicalCase, SourceSpan
@@ -218,6 +219,12 @@ class ClaimVerificationAgent:
 
                 return status, justification, verified_spans, limitation
 
+            except LLMProviderError as exc:
+                if isinstance(exc, LLMInvalidResponse) and attempt == 0:
+                    last_error = exc
+                    logger.warning("Claim verification model attempt %d invalid response (%s). Retrying...", attempt + 1, exc)
+                    continue
+                raise
             except Exception as exc:
                 last_error = exc
                 logger.warning("Claim verification model attempt %d failed (%s). Retrying...", attempt + 1, exc)
@@ -249,7 +256,12 @@ class ClaimVerificationAgent:
                 output_summary=None,
             )
 
-        evidence_map: Dict[str, EvidenceChunk] = {p.evidence_id: p for p in evidence_passages}
+        evidence_map: Dict[str, Any] = {}
+        for p in evidence_passages:
+            evidence_map[p.evidence_id] = p
+            if hasattr(p, "duplicate_evidence_ids") and p.duplicate_evidence_ids:
+                for dup_id in p.duplicate_evidence_ids:
+                    evidence_map.setdefault(dup_id, p)
         verifications: List[ClaimVerification] = []
 
         for claim in report.claims:
@@ -350,10 +362,20 @@ class ClaimVerificationAgent:
             # -----------------------------------------------------------------
             # Step 3: Model-based entailment judgment with span verification
             # -----------------------------------------------------------------
-            status, justification, verified_spans, limitation = self._verify_single_claim_model(
-                claim=claim,
-                cited_chunks=cited_chunks,
-            )
+            try:
+                status, justification, verified_spans, limitation = self._verify_single_claim_model(
+                    claim=claim,
+                    cited_chunks=cited_chunks,
+                )
+            except LLMProviderError as exc:
+                return AgentExecutionRecord(
+                    agent_name="claim_verification",
+                    status=AgentStatusEnum.FAILED,
+                    error_code=exc.error_code,
+                    error_message=f"Claim verification failed: {type(exc).__name__}",
+                    input_summary=f"Report version {report.report_version_id} with {len(report.claims)} claims",
+                    output_summary=None,
+                )
 
             # Invariant Step 2: A claim with a number absent from EVERY cited passage
             # can NEVER be SUPPORTED, whatever the model says!

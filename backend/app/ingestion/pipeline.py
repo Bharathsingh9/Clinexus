@@ -25,7 +25,7 @@ from backend.app.persistence.models import EvidenceDocument, EvidencePassage
 from backend.app.retrieval.embedding_service import EmbeddingService
 from backend.app.retrieval.qdrant_client import QdrantWrapper, format_collection_name
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("clinexus.ingestion")
 
 
 def compute_file_sha256(file_path: str) -> str:
@@ -112,6 +112,7 @@ class IngestionPipeline:
             "short_passages_count": 0,
             "qdrant_vectors_upserted": 0,
         }
+        last_logged_rows = 0
 
         try:
             for row_batch in stream_bioasq_csv(file_path, chunk_size=batch_size):
@@ -240,6 +241,32 @@ class IngestionPipeline:
                             points=points_to_upsert,
                         )
                         stats["qdrant_vectors_upserted"] += len(points_to_upsert)
+
+                    if stats["total_rows_read"] - last_logged_rows >= 1000:
+                        last_logged_rows = stats["total_rows_read"]
+                        logger.info(
+                            "Ingestion progress: rows_read=%d, processed=%d, docs=%d, passages=%d, qdrant=%d, short=%d, skipped=%d, rejected=%d",
+                            stats["total_rows_read"],
+                            stats["processed_rows"],
+                            stats["documents_created"],
+                            stats["passages_created"],
+                            stats["qdrant_vectors_upserted"],
+                            stats["short_passages_count"],
+                            stats["passages_skipped_existing"],
+                            stats["rejected_rows"],
+                        )
+
+            logger.info(
+                "Ingestion completed: rows_read=%d, processed=%d, docs=%d, passages=%d, qdrant=%d, short=%d, skipped=%d, rejected=%d",
+                stats["total_rows_read"],
+                stats["processed_rows"],
+                stats["documents_created"],
+                stats["passages_created"],
+                stats["qdrant_vectors_upserted"],
+                stats["short_passages_count"],
+                stats["passages_skipped_existing"],
+                stats["rejected_rows"],
+            )
 
         finally:
             if failed_file:

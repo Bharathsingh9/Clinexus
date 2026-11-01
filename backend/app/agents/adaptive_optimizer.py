@@ -24,6 +24,7 @@ from typing import Any, Dict, List, Optional, Set, Tuple, Union
 import uuid
 
 from backend.app.core.config import settings
+from backend.app.core.llm_exceptions import LLMProviderError
 from backend.app.core.llm_provider import LLMProvider
 from backend.app.schemas.executions import (
     AgentExecutionRecord,
@@ -202,6 +203,15 @@ class AdaptiveOptimizer:
         try:
             instruction_text = self._invoke_llm(prompt=prompt, system=system_prompt).strip()
             action_desc = f"{rule_reason} Instruction: {instruction_text}"
+        except LLMProviderError as exc:
+            return AgentExecutionRecord(
+                agent_name="adaptive_optimizer",
+                status=AgentStatusEnum.FAILED,
+                error_code=exc.error_code,
+                error_message=f"Optimizer LLM instruction generation failed: {type(exc).__name__}",
+                input_summary=f"Report version {report.report_version_id} (confidence={report.confidence_score})",
+                output_summary=None,
+            )
         except Exception as exc:
             logger.warning("LLM instruction writing failed (%s). Using rule reason.", exc)
             action_desc = rule_reason

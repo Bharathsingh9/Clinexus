@@ -87,3 +87,5 @@ def configure_logging(level: int = logging.INFO) -> logging.Logger:
 
 # Default logger instance
 logger = configure_logging()
+setup_logging = configure_logging
+

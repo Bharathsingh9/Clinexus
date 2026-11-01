@@ -399,3 +399,102 @@ def test_prompt_injection_leaves_routing_and_schema_unchanged(setup_extended_cor
     assert result.report.schema_version == "1.0"
     for sec_val in result.report.sections.values():
         assert "1000mg azithromycin" not in sec_val
+
+
+def test_verifier_llm_rate_limited_leads_to_abstention_with_verification_failed(setup_extended_corpus):
+    """When the LLM provider raises LLM_RATE_LIMITED (retries exhausted) during claim verification,
+    the extended workflow must end in ABSTAINED with primary reason VERIFICATION_FAILED.
+    It can NEVER reach READY_FOR_REVIEW.
+    """
+    from backend.app.core.llm_exceptions import LLMRateLimited
+    from backend.app.schemas.reports import AbstentionReasonCode
+
+    base_llm = make_canned_llm_for_extended_workflow()
+
+    class RateLimitedVerifierLLM(FakeLLMProvider):
+        def generate_text(self, prompt: str, **kwargs) -> str:
+            p_lower = prompt.lower()
+            if (
+                "claim verification" in kwargs.get("system_instruction", "").lower()
+                or "claim verification" in kwargs.get("system", "").lower()
+                or "claim:" in p_lower
+            ):
+                raise LLMRateLimited("429 rate limit exceeded after maximum retries")
+            return base_llm.generate_text(prompt, **kwargs)
+
+    orchestrator = ExtendedWorkflowOrchestrator(
+        llm_provider=RateLimitedVerifierLLM(),
+        ncbi_client=FakeNCBIClient(),
+        repository=ExecutionRepository(),
+        embedding_service=setup_extended_corpus["embedder"],
+        qdrant_wrapper=setup_extended_corpus["qdrant"],
+        collection_version=setup_extended_corpus["collection_version"],
+    )
+
+    sub = CaseSubmission(raw_text="45yo male presents with fever for 3 days and persistent cough. Patient denies chest pain.")
+    result_state = orchestrator.run(submission=sub)
+    result = result_state.final_result
+    assert result is not None
+
+    # Must NEVER reach READY_FOR_REVIEW
+    assert result.final_state != ReportStatusEnum.READY_FOR_REVIEW
+    # Must end in ABSTAINED
+    assert result.final_state == ReportStatusEnum.ABSTAINED
+    # Primary reason must be VERIFICATION_FAILED
+    assert result_state.abstention is not None
+    assert AbstentionReasonCode.VERIFICATION_FAILED in result_state.abstention.reason_codes
+    # Safety Gate Rule 2 must have triggered
+    gate_decision = orchestrator._latest_gate_decisions.get(result_state.execution_id)
+    assert gate_decision is not None
+    assert gate_decision.primary_reason == AbstentionReasonCode.VERIFICATION_FAILED
+    assert gate_decision.rule_triggered == 2
+
+
+def test_verifier_llm_timeout_leads_to_abstention_with_verification_failed(setup_extended_corpus):
+    """When the LLM provider raises LLM_TIMEOUT during claim verification,
+    the extended workflow must end in ABSTAINED with primary reason VERIFICATION_FAILED.
+    It can NEVER reach READY_FOR_REVIEW.
+    """
+    from backend.app.core.llm_exceptions import LLMTimeout
+    from backend.app.schemas.reports import AbstentionReasonCode
+
+    base_llm = make_canned_llm_for_extended_workflow()
+
+    class TimeoutVerifierLLM(FakeLLMProvider):
+        def generate_text(self, prompt: str, **kwargs) -> str:
+            p_lower = prompt.lower()
+            if (
+                "claim verification" in kwargs.get("system_instruction", "").lower()
+                or "claim verification" in kwargs.get("system", "").lower()
+                or "claim:" in p_lower
+            ):
+                raise LLMTimeout("HTTP read timeout after retries")
+            return base_llm.generate_text(prompt, **kwargs)
+
+    orchestrator = ExtendedWorkflowOrchestrator(
+        llm_provider=TimeoutVerifierLLM(),
+        ncbi_client=FakeNCBIClient(),
+        repository=ExecutionRepository(),
+        embedding_service=setup_extended_corpus["embedder"],
+        qdrant_wrapper=setup_extended_corpus["qdrant"],
+        collection_version=setup_extended_corpus["collection_version"],
+    )
+
+    sub = CaseSubmission(raw_text="45yo male presents with fever for 3 days and persistent cough. Patient denies chest pain.")
+    result_state = orchestrator.run(submission=sub)
+    result = result_state.final_result
+    assert result is not None
+
+    # Must NEVER reach READY_FOR_REVIEW
+    assert result.final_state != ReportStatusEnum.READY_FOR_REVIEW
+    # Must end in ABSTAINED
+    assert result.final_state == ReportStatusEnum.ABSTAINED
+    # Primary reason must be VERIFICATION_FAILED
+    assert result_state.abstention is not None
+    assert AbstentionReasonCode.VERIFICATION_FAILED in result_state.abstention.reason_codes
+    # Safety Gate Rule 2 must have triggered
+    gate_decision = orchestrator._latest_gate_decisions.get(result_state.execution_id)
+    assert gate_decision is not None
+    assert gate_decision.primary_reason == AbstentionReasonCode.VERIFICATION_FAILED
+    assert gate_decision.rule_triggered == 2
+

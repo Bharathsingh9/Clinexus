@@ -186,3 +186,27 @@ As instructed, each of the following datasets was audited for row counts, column
 ### 7.3 PubMedQA (`datasets/pubmedqa/` and `datasets/processed/pubmedqa/`)
 - `datasets/pubmedqa/ori_pqal.json`: 1,000 rows (labeled subset PQA-L), 10 columns (`key`, `QUESTION`, `CONTEXTS`, `LABELS`, `MESHES`, `YEAR`, `reasoning_required_pred`, `reasoning_free_pred`, `final_decision`, `LONG_ANSWER`), 0 duplicates, PII: PASS. SHA-256: `fb1f109a9bad1f96369a0d5343e3710d251c8f237e8369be86e30bd7e430523d`.
 - `datasets/processed/pubmedqa/pubmedqa_normalized.csv`: 1,000 rows, 10 columns, 0 nulls, 0 duplicates, PII: PASS. SHA-256: `d6909ec99aad8d4ec5dd612bb4e518e2dbb488239a35b8f8303bf37950da1980`.
+
+---
+
+## 8. Real BioASQ Corpus Ingestion Audit (Phase 5 Stage A)
+
+Conducted on 2026-11-01 via `scripts/ingest_documents.py` using canonical collection `evidence_biobert_mnli_snli_scinli_scitail_mednli_stsb_v1`.
+
+| Ingestion Metric / Parameter | Value | Verification Status / Note |
+| :--- | :--- | :--- |
+| **Corpus Source File** | `datasets/processed/bioasq/bioasq_evidence_corpus.csv` | Verified |
+| **Source Rows Read** | **75,919** | **100% of source rows read** |
+| **Rows Processed** | **75,919** | All valid rows |
+| **Rows Rejected** | **0** | Expected 0 (`logs/failed_records.jsonl` count = 0) |
+| **Evidence Documents Created (PostgreSQL)** | **48,807** | Distinct PMIDs extracted: 48,807 (from 48,949 distinct URL strings due to URL normalization) |
+| **Evidence Passages Created (PostgreSQL)** | **85,139** | **EXACT MATCH TO SPEC App A11** (effective chunk 98, overlap 20) |
+| **Passages with `short_passage=true` (<50 chars)** | **1,637** | Flagged and preserved |
+| **Qdrant Collection Name** | `evidence_biobert_mnli_snli_scinli_scitail_mednli_stsb_v1` | Canonical naming per SPEC 2 |
+| **Qdrant Points Upserted** | **85,139** | **EXACT MATCH TO POSTGRES PASSAGES (1:1 parity)** |
+| **Point-to-Passage Matching Mismatches** | **0** | Verified across all 85,139 points in batches of 1,000 |
+| **Payload Integrity** | 6 allowed fields strictly | Checked over sample of 2,000 points; 0 `sample_id` or `question_type` instances |
+| **Relational Schema Isolation** | Verified | Neither `sample_id` nor `question_type` exists in `evidence_documents` or `evidence_passages` |
+| **Corpus Version** | `4aea8ab2bd5c37002a9f3a84278a0ffb26c5bdd4387894c6c9cc14ecc49d894e_pritamdeka/BioBERT-mnli-snli-scinli-scitail-mednli-stsb_v1` | Combined corpus SHA-256 + model slug + v1 |
+| **Idempotence Verification** | 0 new rows, 0 new points | Re-ingested first 2,000 rows: 2,152 passages skipped existing, 0 docs created, 0 points upserted |
+
