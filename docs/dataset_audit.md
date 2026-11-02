@@ -210,3 +210,65 @@ Conducted on 2026-11-01 via `scripts/ingest_documents.py` using canonical collec
 | **Corpus Version** | `4aea8ab2bd5c37002a9f3a84278a0ffb26c5bdd4387894c6c9cc14ecc49d894e_pritamdeka/BioBERT-mnli-snli-scinli-scitail-mednli-stsb_v1` | Combined corpus SHA-256 + model slug + v1 |
 | **Idempotence Verification** | 0 new rows, 0 new points | Re-ingested first 2,000 rows: 2,152 passages skipped existing, 0 docs created, 0 points upserted |
 
+---
+
+## 9. BioASQ Questions Adapter, Derived Relevance Labels & Split Audit (Phase 5 Stage B)
+
+Conducted on 2026-11-01 per SPEC 9.4, 9.5, 9.6, 9.7 and Appendix A11. Counts only; no question text.
+
+### 9.1 Questions File Parsing & Shape Validation (`bioasq_normalized.csv`)
+- **Source File**: `datasets/processed/bioasq/bioasq_normalized.csv` (SHA-256: `f80815e48f80d778362c8c74005bfefedbc80cedd3bcd75b24e0e2299fc6db53`)
+- **Total Questions Parsed**: **5,729**
+- **Rejected Rows by Reason**: **0** (0 rejections across all rows)
+- **Question Types (before exclusion)**:
+  - `factoid`: **1,695** (flat list of strings)
+  - `yesno`: **1,541** ("yes" in 1,123, "no" in 418)
+  - `summary`: **1,363** (JSON null)
+  - `list`: **1,130** (list of lists of strings)
+  - **Sum**: 1,695 + 1,541 + 1,363 + 1,130 = **5,729** (100% exact match to SPEC 9.4)
+- **Ideal Answer Validation**: 100% non-empty list of non-empty strings (0 failures)
+- **Context, Source Reference, Concepts, Metadata Parsing**: 100% valid JSON (0 failures; concepts and metadata discarded)
+
+### 9.2 Corpus Linkage & Derived Relevance Labels
+- **Questions with Corpus Rows**: **5,665** (exact match to SPEC 9.5)
+- **Excluded Questions with None (0 corpus rows)**: **64** (exact match to SPEC 9.5)
+  - Excluded by type: `factoid`: 35, `yesno`: 12, `summary`: 11, `list`: 6
+- **Corpus vs Context Snippet Matching**:
+  - Total context snippets: **80,058**
+  - Total corpus rows: **75,919**
+  - Exact snippet text matches: **64,270**
+  - Normalized snippet text matches (whitespace and case collapsed): **11,649**
+  - Unmatched corpus rows: **0**
+  - Total corpus rows accounted for: 64,270 + 11,649 = **75,919** (100.0%)
+  - Aggregate coverage: 75,919 / 80,058 = **94.830%** (~94.8%)
+  - Questions where `n_corpus_rows < n_context`: **1,676 questions**
+- **Row-Level Passage Relevance**:
+  - Total legacy corpus rows: 75,919
+  - Missing legacy rows in database: **0** (all 85,139 platform passages `ev:bioasq:<legacy_id>:<chunk_index>` verified in DB)
+  - Derived labels provenance tag: `DERIVED_FROM_SAMPLE_ID`
+  - Human confirmation flag: `confirmed_by_human: false`
+
+### 9.3 Evaluation Splits (`splits_v1.json`)
+- **Split File**: `datasets/processed/splits_v1.json` (SHA-256: `7770605ed75835ca46658df381e081a3d00c401581626005495323eee5f7ea85`)
+- **Seed**: 42 (PRNG `random.Random(42)`)
+- **Eligible Questions**: **5,665**
+- **Overall Dev Count**: **1,133** (**20.00%**)
+- **Overall Eval Count**: **4,532** (**80.00%**)
+- **Split Counts per Question Type**:
+  - `factoid`: Total 1,660 | Dev: 332 (20.00%) | Eval: 1,328 (80.00%)
+  - `list`: Total 1,124 | Dev: 225 (20.02%) | Eval: 899 (79.98%)
+  - `summary`: Total 1,352 | Dev: 270 (19.97%) | Eval: 1,082 (80.03%)
+  - `yesno`: Total 1,529 | Dev: 306 (20.01%) | Eval: 1,223 (79.99%)
+- **Smoke30 Candidates**: Exactly 30 questions (`factoid`: 8, `summary`: 8, `list`: 7, `yesno`: 7) in file order; 100% pre-assigned to `dev`.
+- **E2E Sample (`EVAL_SAMPLE_SIZE=200`)**: Drawn strictly from `eval`, stratified proportionally by type:
+  - `factoid`: 58 (29.0%)
+  - `yesno`: 54 (27.0%)
+  - `summary`: 48 (24.0%)
+  - `list`: 40 (20.0%)
+  - Total: 200 (100.0% in `eval`, 0 in `dev`)
+- **Determinism**: Re-run on seed 42 produces identical output hash and identical sample lists.
+- **Relational Persistence (`evaluation_labels`)**:
+  - Run 1: 5,729 inserted, 0 updated
+  - Run 2: 0 inserted, 5,729 updated (100% idempotent)
+
+

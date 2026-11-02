@@ -175,3 +175,8 @@ A12. Corrections and rules after Phase 5 Stage A
 - The 30 smoke questions are assigned to the dev split, and never to eval, because the first real LLM runs use them for prompt and setting checks.
 - Evaluation tests use only [SYNTHETIC] fixtures; checks on the real data run as audit reports, not as tests.
 - Integration and unit tests must never use the main database or the main Qdrant collection. They use a separate test database and collection prefix.
+   A13. Stage D decisions
+   - Retrieval-only evaluation embeds the question text as a single query (label RETRIEVAL_ONLY_QUESTION_AS_QUERY); end-to-end runs use the real agents.
+   - smoke30 is the development end-to-end set. Eval-split runs require confirmed manifest entries, a recorded configuration hash, and run once per configuration.
+   - Model-calling runs require third_party_llm_allowed: true in the manifest entries for the corpus and questions files.
+   - Evaluation configurations built in this stage: baseline (retrieval and workflow metrics only), full (offline), full_online. The no_verifier and no_abstention variants and answer extraction without verification need a change proposal (CP-08) and are not built.

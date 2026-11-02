@@ -33,6 +33,7 @@ from sqlalchemy import (
     Float,
     ForeignKey,
     Integer,
+    JSON,
     String,
     Text,
     UniqueConstraint,
@@ -357,11 +358,21 @@ class EvaluationMetric(Base):
 
 class EvaluationLabel(Base):
     __tablename__ = "evaluation_labels"
+    __table_args__ = (
+        UniqueConstraint("sample_id", name="uq_evaluation_labels_sample_id"),
+    )
 
     id = Column(String(36), primary_key=True, default=gen_uuid)
     sample_id = Column(String(100), nullable=False, index=True)
-    corpus_id = Column(String(100), nullable=False, index=True)
-    relevance_label = Column(Integer, nullable=False)  # 0 or 1
+    corpus_id = Column(String(100), nullable=True, index=True, default="bioasq")
+    question_type = Column(String(20), nullable=True)
+    exact_answer = Column(JSON, nullable=True)
+    ideal_answer = Column(JSON, nullable=True)
+    gold_pmids = Column(JSON, nullable=True)
+    relevant_passages = Column(JSON, nullable=True)
+    relevance_label = Column(Integer, nullable=False, default=1)  # 0 or 1
     is_derived = Column(Boolean, nullable=False, default=True)
+    derivation_source = Column(String(100), nullable=True, default="DERIVED_FROM_SAMPLE_ID")
     approved_by_human = Column(Boolean, nullable=False, default=False)
+    confirmed_by_human = Column(Boolean, nullable=False, default=False)
     created_at = Column(DateTime(timezone=True), nullable=False, default=utcnow)

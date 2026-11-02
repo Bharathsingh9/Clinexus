@@ -21,10 +21,16 @@ if config.config_file_name is not None:
 # Set model metadata for autogenerate support
 target_metadata = Base.metadata
 
-# Use DATABASE_SYNC_URL from environment or application settings if not already provided
-db_url = config.get_main_option("sqlalchemy.url")
-if not db_url:
-    db_url = os.getenv("DATABASE_SYNC_URL", settings.DATABASE_SYNC_URL)
+# Resolve database connection URL:
+# 1. If explicitly configured with a non-default URL (e.g. SQLite in unit tests), honor it.
+# 2. Otherwise use DATABASE_SYNC_URL from environment or application settings.
+cmd_url = config.get_main_option("sqlalchemy.url")
+env_url = os.getenv("DATABASE_SYNC_URL")
+if env_url and (not cmd_url or "localhost:5432/clinexus" in cmd_url):
+    db_url = env_url
+    config.set_main_option("sqlalchemy.url", db_url)
+else:
+    db_url = cmd_url or (env_url or settings.DATABASE_SYNC_URL)
     config.set_main_option("sqlalchemy.url", db_url)
 
 

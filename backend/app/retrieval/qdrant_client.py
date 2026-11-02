@@ -32,10 +32,15 @@ def slugify_model_name(model_name: str) -> str:
     return clean
 
 
-def format_collection_name(model_name: str, version: int) -> str:
-    """Format canonical Qdrant collection name: evidence_<model_slug>_v<n>."""
+def format_collection_name(
+    model_name: str,
+    version: int,
+    prefix: Optional[str] = None,
+) -> str:
+    """Format canonical Qdrant collection name: <prefix>_<model_slug>_v<n>."""
+    active_prefix = prefix or settings.QDRANT_COLLECTION_PREFIX
     slug = slugify_model_name(model_name)
-    return f"evidence_{slug}_v{version}"
+    return f"{active_prefix}_{slug}_v{version}"
 
 
 class QdrantWrapper:

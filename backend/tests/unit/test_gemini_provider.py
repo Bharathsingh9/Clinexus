@@ -1017,12 +1017,14 @@ async def test_live_smoke_gemini():
     NEVER prints: the key, the request body, or the full response.
     """
     import os
-    provider_name = os.environ.get("LLM_PROVIDER", "")
-    api_key = os.environ.get("LLM_API_KEY", "")
+    from backend.app.core.config import settings
+
+    provider_name = os.environ.get("LLM_PROVIDER") or settings.LLM_PROVIDER
+    api_key = os.environ.get("LLM_API_KEY") or settings.LLM_API_KEY
     if provider_name != "gemini" or not api_key:
         pytest.skip("LLM_PROVIDER=gemini and LLM_API_KEY required for live test")
 
-    model = os.environ.get("LLM_MODEL", "gemini-2.0-flash")
+    model = os.environ.get("LLM_MODEL") or settings.LLM_MODEL or "gemini-2.0-flash"
     provider = GeminiProvider(
         api_key=api_key,
         default_model=model,

@@ -50,6 +50,10 @@ from backend.app.schemas.reports import (
     ReviewActionEnum,
     VerificationMethodEnum,
 )
+from backend.app.schemas.evaluation import (
+    BioASQGoldLabel,
+    WorkflowInput,
+)
 
 __all__ = [
     # IDs

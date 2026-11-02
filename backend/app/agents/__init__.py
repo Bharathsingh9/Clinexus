@@ -1,6 +1,12 @@
 """Agents package."""
 
 from backend.app.agents.adaptive_optimizer import AdaptiveOptimizer
+from backend.app.agents.answer_extractor import (
+    AnswerExtractionResult,
+    AnswerExtractor,
+    AnswerExtractorInput,
+    ExtractedReportClaim,
+)
 from backend.app.agents.clinical_data_fusion import ClinicalDataFusion
 from backend.app.agents.clinical_text_clarifier import ClinicalTextClarifier
 from backend.app.agents.evidence_based_scanner import EvidenceBasedScanner
@@ -12,4 +18,8 @@ __all__ = [
     "EvidenceBasedScanner",
     "ClinicalDataFusion",
     "AdaptiveOptimizer",
+    "AnswerExtractor",
+    "AnswerExtractorInput",
+    "ExtractedReportClaim",
+    "AnswerExtractionResult",
 ]

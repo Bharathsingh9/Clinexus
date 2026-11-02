@@ -33,6 +33,7 @@ def test_per_agent_model_defaults():
         LLM_MODEL_FUSION=None,
         LLM_MODEL_OPTIMIZER=None,
         VERIFIER_MODEL=None,
+        LLM_MODEL_EXTRACTOR=None,
     )
     assert cfg.LLM_MODEL_CLARIFIER == "custom-base-model"
     assert cfg.LLM_MODEL_RAG == "custom-base-model"
@@ -40,6 +41,7 @@ def test_per_agent_model_defaults():
     assert cfg.LLM_MODEL_FUSION == "custom-base-model"
     assert cfg.LLM_MODEL_OPTIMIZER == "custom-base-model"
     assert cfg.VERIFIER_MODEL == "custom-base-model"
+    assert cfg.LLM_MODEL_EXTRACTOR == "custom-base-model"
 
 
 def test_per_agent_model_override():
@@ -48,10 +50,12 @@ def test_per_agent_model_override():
         LLM_MODEL="base-model",
         LLM_MODEL_CLARIFIER="clarifier-model",
         VERIFIER_MODEL="verifier-model",
+        LLM_MODEL_EXTRACTOR="extractor-model",
     )
     assert cfg.LLM_MODEL_CLARIFIER == "clarifier-model"
     assert cfg.LLM_MODEL_RAG == "base-model"
     assert cfg.VERIFIER_MODEL == "verifier-model"
+    assert cfg.LLM_MODEL_EXTRACTOR == "extractor-model"
 
 
 def test_max_optimizer_iterations_hard_cap():

@@ -32,6 +32,10 @@ class Settings(BaseSettings):
     # Qdrant Vector Database
     QDRANT_URL: str = "http://localhost:6333"
     QDRANT_API_KEY: Optional[str] = None
+    QDRANT_COLLECTION_PREFIX: str = Field(
+        default="evidence",
+        description="Prefix for Qdrant collection names (e.g. 'evidence' or 'test_evidence')",
+    )
     QDRANT_COLLECTION_VERSION: int = 1
 
     # Embedding Model Configuration (SPEC App A6, DEC-012)
@@ -61,6 +65,11 @@ class Settings(BaseSettings):
             "Unset = no cap outside evaluation runs."
         ),
     )
+    EVAL_SAMPLE_SIZE: int = Field(
+        default=200,
+        gt=0,
+        description="Sample size for end-to-end evaluation drawn from eval split (SPEC 9.6)",
+    )
     LLM_MAX_OUTPUT_TOKENS: Optional[int] = Field(
         default=None,
         description="Maximum output tokens for LLM completions.",
@@ -71,6 +80,7 @@ class Settings(BaseSettings):
     LLM_MODEL_FUSION: Optional[str] = None
     LLM_MODEL_OPTIMIZER: Optional[str] = None
     VERIFIER_MODEL: Optional[str] = None
+    LLM_MODEL_EXTRACTOR: Optional[str] = None
 
     # NCBI E-utilities Configuration
     NCBI_EMAIL: Optional[str] = None
@@ -194,6 +204,8 @@ class Settings(BaseSettings):
             self.LLM_MODEL_OPTIMIZER = base
         if not self.VERIFIER_MODEL:
             self.VERIFIER_MODEL = base
+        if not self.LLM_MODEL_EXTRACTOR:
+            self.LLM_MODEL_EXTRACTOR = base
 
         if self.RETRIEVAL_SCORE_FLOOR >= self.RETRIEVAL_SCORE_CEILING:
             raise ValueError(
