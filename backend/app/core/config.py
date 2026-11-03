@@ -74,6 +74,26 @@ class Settings(BaseSettings):
         default=None,
         description="Maximum output tokens for LLM completions.",
     )
+    LLM_MAX_RETRY_WAIT_S: float = Field(
+        default=30.0,
+        gt=0.0,
+        description="Maximum retry delay in seconds before failing immediately (default 30, must be > 0).",
+    )
+    LLM_MAX_CALL_SECONDS: float = Field(
+        default=120.0,
+        gt=0.0,
+        description="Maximum total duration of one LLM call including all retries in seconds (default 120, must be > 0).",
+    )
+    LLM_TEMPERATURE: Optional[float] = Field(
+        default=None,
+        ge=0.0,
+        le=2.0,
+        description="Sampling temperature for LLM. When unset, omitted from the request body.",
+    )
+    LLM_THINKING_LEVEL: Optional[str] = Field(
+        default=None,
+        description="Thinking level for reasoning models: LOW, MEDIUM, or HIGH. When unset, omitted.",
+    )
     LLM_MODEL_CLARIFIER: Optional[str] = None
     LLM_MODEL_RAG: Optional[str] = None
     LLM_MODEL_SCANNER: Optional[str] = None
@@ -177,6 +197,34 @@ class Settings(BaseSettings):
         if clean_v not in ("online", "offline"):
             raise ValueError(f"EXTERNAL_MODE must be 'online' or 'offline', got '{v}'")
         return clean_v
+
+    @field_validator("LLM_THINKING_LEVEL")
+    @classmethod
+    def validate_thinking_level(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return None
+        clean_v = v.strip().upper()
+        allowed = {"LOW", "MEDIUM", "HIGH"}
+        if clean_v not in allowed:
+            raise ValueError(
+                f"LLM_THINKING_LEVEL must be one of {sorted(allowed)}, got '{v}' (MINIMAL and other levels are not supported)"
+            )
+        return clean_v
+
+    @property
+    def temperature_sent(self) -> bool:
+        """Indicates whether sampling temperature was sent to the model."""
+        return self.LLM_TEMPERATURE is not None
+
+    @property
+    def thinking_level(self) -> Optional[str]:
+        """Thinking level configured for the model."""
+        return self.LLM_THINKING_LEVEL
+
+    @property
+    def model_name(self) -> str:
+        """Resolved default model name."""
+        return self.LLM_MODEL
 
     @field_validator("EMBEDDING_MODEL")
     @classmethod

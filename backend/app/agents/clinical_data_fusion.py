@@ -333,6 +333,16 @@ class ClinicalDataFusion:
                                 cited_evidence_ids=rc_eids,
                             )
                         )
+            except LLMProviderError as repair_err:
+                if getattr(repair_err, "error_code", "") == "LLM_QUOTA_EXHAUSTED":
+                    return AgentExecutionRecord(
+                        agent_name="clinical_data_fusion",
+                        status=AgentStatusEnum.FAILED,
+                        error_code=repair_err.error_code,
+                        error_message=f"LLM fusion citation repair failed: {type(repair_err).__name__}",
+                        input_summary=f"Clinical case (case_id={cid})",
+                    )
+                logger.warning("Citation repair invocation failed (%s). Dropping invalid claims.", repair_err)
             except Exception as repair_err:
                 logger.warning("Citation repair invocation failed (%s). Dropping invalid claims.", repair_err)
 

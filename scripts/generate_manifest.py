@@ -125,6 +125,7 @@ def get_file_metadata(path):
         "license_status": "UNKNOWN",
         "processing_provenance": "UNKNOWN",
         "confirmed_by_human": confirmed_by_human,
+        "third_party_llm_allowed": False,
         "pii_scan_status": pii["status"],
         "author_contact_emails_found": pii["counts"]["author_contact_emails"],
         "patient_pii_found": sum(pii["counts"][k] for k in ["ssn", "dob", "mrn", "patient_names", "phone_numbers"])

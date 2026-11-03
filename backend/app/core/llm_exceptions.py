@@ -51,3 +51,14 @@ class LLMUnavailable(LLMProviderError):
     """Connection failures after all retries (5xx, network errors)."""
 
     error_code = "LLM_UNAVAILABLE"
+
+
+class LLMQuotaExhausted(LLMProviderError):
+    """Daily quota exhausted (HTTP 429 per-day limit). Check plan and billing."""
+
+    error_code = "LLM_QUOTA_EXHAUSTED"
+
+
+# Alias for compatibility with code referencing LLM_QUOTA_EXHAUSTED
+LLM_QUOTA_EXHAUSTED = LLMQuotaExhausted
+

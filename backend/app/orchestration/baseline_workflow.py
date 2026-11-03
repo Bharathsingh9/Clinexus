@@ -436,6 +436,13 @@ class BaselineWorkflowOrchestrator:
             output_summary=f"Extracted {len(case.structured_symptoms)} symptoms, {len(case.clarification_questions)} questions",
         )
 
+        if state.is_benchmark:
+            case_questions = [
+                q for q in case.clarification_questions
+                if not (q.is_blocking and any(k in q.reason.lower() for k in ("age", "sex", "duration", "required case field")))
+            ]
+            case = case.model_copy(update={"clarification_questions": case_questions})
+
         blocking = [q for q in case.clarification_questions if q.is_blocking]
         non_blocking = [q for q in case.clarification_questions if not q.is_blocking]
 
@@ -1026,6 +1033,18 @@ class BaselineWorkflowOrchestrator:
             completed=True,
         )
 
+        if state.is_benchmark and state.report:
+            if not state.report.summary.startswith("[BENCHMARK, NOT CLINICAL USE]"):
+                state.report.summary = f"[BENCHMARK, NOT CLINICAL USE] {state.report.summary}"
+                if state.report.report_version_id:
+                    self.repository.update_report_version_summary(
+                        report_version_id=state.report.report_version_id,
+                        summary=state.report.summary,
+                    )
+            sec_dict = dict(state.report.sections)
+            sec_dict["benchmark_label"] = "BENCHMARK, NOT CLINICAL USE"
+            state.report = state.report.model_copy(update={"benchmark_label": "BENCHMARK, NOT CLINICAL USE", "sections": sec_dict})
+
         result = WorkflowResult(
             execution_id=state.execution_id,
             case_id=state.case_id,
@@ -1033,6 +1052,8 @@ class BaselineWorkflowOrchestrator:
             report=state.report,
             abstention=None,
             iterations_count=len(state.iterations),
+            is_benchmark=state.is_benchmark,
+            benchmark_label="BENCHMARK, NOT CLINICAL USE" if state.is_benchmark else None,
             completed_at=now,
         )
 

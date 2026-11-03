@@ -148,3 +148,27 @@ In accordance with Rule **R10**, any high-impact detail, specification differenc
   **APPROVED**. The Symptom RAG Analyzer also outputs a list of `CandidateHypothesis` objects (`label`, supporting `evidence_ids`, `retrieval_scores`). Code keeps a hypothesis only if at least one retrieved passage supports it, and rejects any cited ID not in the retrieved set. Hypotheses are "candidate considerations", never diagnoses. The Scanner builds one PubMed query per hypothesis plus queries for gaps. Fusion consumes the hypotheses. In benchmark mode, where the question is not diagnostic, the list may be empty and the Scanner uses gap queries. Add the `CandidateHypothesis` schema to the schema list.
 - **Impact**:
   Establishes the formal contract between RAG Analyzer, Scanner, and Fusion, guarantees that all considerations are grounded in retrieved evidence, and adheres to non-diagnostic safety constraints.
+
+---
+
+## CP-08: Answer Extraction and Safety Gate Behavior for Baseline, No-Verifier, and No-Abstention Ablations
+- **Status**: STOPPED (Date: 2026-11-03, Decision Pointer: User Prompt / SPEC Appendix A13)
+- **Problem**:
+  1. *Answer Extraction for Unverified Pipelines*: `AnswerExtractor` (SPEC 9.9, EVL-6) strictly requires input claims to have a verified status in `{SUPPORTED, PARTIALLY_SUPPORTED}`. In the baseline workflow (SPEC Section 3, Phase 3) and any future `no_verifier` ablation variant, the Claim Verification Agent does not run. As a result, report claims have no verification status, and `AnswerExtractor` strictly rejects them, making exact answer extraction impossible without modifying the extractor contract.
+  2. *Safety Gate Behavior Under Ablations*: In a `no_verifier` ablation, gate Rule 2 (verifier execution failure) and Rule 3 (unsupported safety-critical or contradicted material claims) cannot be evaluated because no `ClaimVerification` records exist. In a `no_abstention` ablation, the system must decide how to handle scenarios where Rules 1 to 5 would mandate `finalize_abstain` (e.g. out-of-scope, unverified claims, no relevant evidence, low confidence).
+- **Options**:
+  - *Option 1 (Explicit Untrusted Extraction & Selective Gate Bypass)*:
+    - (a) For answer extraction in baseline / `no_verifier`, add an explicit harness-level flag `allow_unverified_claims: bool = False` to `AnswerExtractor`. When enabled, the extractor accepts unverified claims but marks all extracted outputs with `extraction_mode="UNVERIFIED_CLAIMS"`. Full and full_online runs remain strictly restricted to verified claims.
+    - (b) For `no_verifier` at the gate, skip Rules 2 and 3, allowing Rules 1, 4, 5, and 6 to operate normally. For `no_abstention`, allow the optimizer to run when triggered, but at budget exhaustion or upon non-retryable triggers (Rule 1, 2, 4), force routing to `finalize_ready` labeled `ABSTENTION_SUPPRESSED_BENCHMARK_ONLY`.
+  - *Option 2 (Recommended - Metric Scope Restriction & Strict Non-Extraction)*:
+    - (a) Maintain the strict invariant of `AnswerExtractor`: answers are extracted ONLY from verified claims. The baseline and `no_verifier` configurations report retrieval, workflow, confidence, iteration, latency, and failure metrics ONLY, and do NOT report answer accuracy metrics (MRR, strict accuracy, exact match, ROUGE).
+    - (b) Do not implement `no_verifier` or `no_abstention` ablations until a formal clinical benchmark specification defines their safety-envelope semantics.
+  - *Option 3 (Synthetic Pass-Through Status)*:
+    - (a) Artificially stamp unverified claims with a pseudo-status `UNCHECKED_PASS_THROUGH` before passing to `AnswerExtractor`.
+    - (b) Completely remove `evaluate_gate` from the LangGraph execution graph for `no_abstention`.
+- **Recommendation**:
+    Option 2 is recommended. It strictly preserves the safety invariant (R11) that unverified claims cannot be presented as verified clinical answers, avoids fabricating verification statuses, and complies with SPEC Appendix A13 which specifies that baseline reports retrieval/workflow metrics only.
+- **Decision Status**:
+  **STOPPED**. Per user instructions and SPEC Appendix A13, build none of these variants in Stage D Part 1.
+- **Impact**:
+  Prevents invalid comparisons between unverified claims and verified claims, documents architectural dependencies for future benchmark design, and keeps Phase 5 Stage D scoped strictly to confirmed components.

@@ -83,3 +83,29 @@ All answer string matching is preceded by deterministic normalization (`normaliz
 2. **Potential Pretraining Contamination**: BioASQ training sets are publicly available on the internet; model performance may partially reflect memorization from pretraining rather than pure clinical reasoning.
 3. **Data Provenance**: The raw files under `datasets/` represent a processed snapshot of unknown processing provenance.
 4. **Research Tool**: Evaluation results represent benchmark measurements on retrospective academic datasets and must **never** be interpreted as evidence of clinical safety or diagnostic efficacy.
+
+---
+
+## 6. Score-Range Recalibration Proposal (Phase 5 Stage D) [PROPOSAL - NOT APPLIED]
+
+### 6.1 Empirical Distribution on `retrieval_dev` (n=1,133)
+Using `retrieval_only` (BioBERT question-as-query embeddings against closed-world BioASQ snippet collection `evidence_biobert_mnli_snli_scinli_scitail_mednli_stsb_v1`), retrieval scores were recorded across all 1,133 dev questions. Questions were partitioned into those with at least one relevant passage row in the top 10 (`relevant_in_top_k`, n=979) versus those with no relevant row in top 10 (`no_relevant_in_top_k`, n=154).
+
+| Group | Metric | Count | p5 | p25 | p50 (Median) | p75 | p95 |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **`relevant_in_top_k`** | Top-1 Row Score | 979 | 0.5189 | 0.6304 | 0.7075 | 0.7680 | 0.8565 |
+| **`relevant_in_top_k`** | Mean Top-3 Row Score | 979 | 0.4963 | 0.6025 | 0.6749 | 0.7399 | 0.8190 |
+| **`no_relevant_in_top_k`** | Top-1 Row Score | 154 | 0.4155 | 0.5495 | 0.6131 | 0.6817 | 0.7999 |
+| **`no_relevant_in_top_k`** | Mean Top-3 Row Score | 154 | 0.4088 | 0.5273 | 0.5916 | 0.6651 | 0.7743 |
+
+### 6.2 Proposed Settings and Rationale
+* **`RETRIEVAL_SCORE_FLOOR`**: Propose **0.50** (Current default: 0.30).
+  * *Rationale*: In questions where relevant evidence is found, the 5th percentile of `mean_top3` is 0.4963 (~0.50). Any retrieval set scoring below 0.50 has less than a 5% probability of containing relevant evidence. Setting the floor at 0.50 anchors 0.0 retrieval strength where evidence is empirically absent, avoiding artificial inflation of confidence scores.
+* **`RETRIEVAL_SCORE_CEILING`**: Propose **0.82** (Current default: 0.90).
+  * *Rationale*: The 95th percentile of `mean_top3` among successful retrievals is 0.8190 (~0.82). BioBERT cosine similarities rarely exceed 0.86; a ceiling of 0.90 forces genuinely strong retrievals to peak around ~0.70 retrieval strength. A ceiling of 0.82 properly maps top-tier evidence grounding to 1.0 retrieval strength.
+* **`RETRIEVAL_MIN_SCORE`**: Propose **0.50** (Current default: 0.30).
+  * *Rationale*: Prevents noise passages scoring between 0.30 and 0.49 from satisfying the `MIN_RELEVANT_PASSAGES` constraint for gate rule 4.
+* **Limitation**:
+  * End-to-end workflow queries originate from the Clinical Text Clarifier and Symptom RAG Analyzer (structured symptom terms and refined query strings), which may yield different similarity score distributions than direct question-as-query evaluation. Human confirmation is required prior to applying these thresholds to evaluation or production runs.
+* **Status**: **PROPOSAL ONLY**. No settings in code or environment configuration have been changed.
+

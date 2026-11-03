@@ -30,10 +30,12 @@ from typing import Any, Dict, Optional, Type
 import httpx
 from pydantic import BaseModel
 
+from backend.app.core.config import settings
 from backend.app.core.llm_exceptions import (
     LLMAuthError,
     LLMCallCapReached,
     LLMInvalidResponse,
+    LLMQuotaExhausted,
     LLMRateLimited,
     LLMTimeout,
     LLMUnavailable,
@@ -148,17 +150,22 @@ class TokenUsage:
     def __init__(self) -> None:
         self.total_input_tokens: int = 0
         self.total_output_tokens: int = 0
+        self.total_thinking_tokens: int = 0
         self.call_count: int = 0
 
-    def record(self, input_tokens: int, output_tokens: int) -> None:
+    def record(
+        self, input_tokens: int, output_tokens: int, thinking_tokens: int = 0
+    ) -> None:
         self.total_input_tokens += input_tokens
         self.total_output_tokens += output_tokens
+        self.total_thinking_tokens += thinking_tokens
         self.call_count += 1
 
-    def snapshot(self) -> Dict[str, int]:
+    def snapshot(self) -> Dict[str, Any]:
         return {
             "total_input_tokens": self.total_input_tokens,
             "total_output_tokens": self.total_output_tokens,
+            "total_thinking_tokens": self.total_thinking_tokens,
             "call_count": self.call_count,
         }
 
@@ -193,6 +200,10 @@ class GeminiProvider:
         requests_per_minute: int = 10,
         max_output_tokens: Optional[int] = None,
         eval_max_llm_calls: Optional[int] = None,
+        temperature: Optional[float] = None,
+        thinking_level: Optional[str] = None,
+        max_retry_wait_s: Optional[float] = None,
+        max_call_seconds: Optional[float] = None,
     ) -> None:
         if not api_key:
             raise LLMAuthError(
@@ -204,6 +215,52 @@ class GeminiProvider:
         self._max_retries = max_retries
         self._max_output_tokens = max_output_tokens
         self._eval_max_llm_calls = eval_max_llm_calls
+
+        # Temperature setting (default unset)
+        self._temperature = (
+            temperature
+            if temperature is not None
+            else getattr(settings, "LLM_TEMPERATURE", None)
+        )
+
+        # Thinking level setting (LOW, MEDIUM, HIGH only, default unset)
+        resolved_thinking = (
+            thinking_level
+            if thinking_level is not None
+            else getattr(settings, "LLM_THINKING_LEVEL", None)
+        )
+        if resolved_thinking is not None:
+            clean_tl = resolved_thinking.strip().upper()
+            if clean_tl not in {"LOW", "MEDIUM", "HIGH"}:
+                raise ValueError(
+                    f"LLM_THINKING_LEVEL must be one of ['HIGH', 'LOW', 'MEDIUM'], got {resolved_thinking!r}"
+                )
+            self._thinking_level: Optional[str] = clean_tl
+        else:
+            self._thinking_level = None
+
+        # Retry wait cap setting (default 30, must be > 0)
+        self._max_retry_wait_s: float = (
+            float(max_retry_wait_s)
+            if max_retry_wait_s is not None
+            else float(getattr(settings, "LLM_MAX_RETRY_WAIT_S", 30.0))
+        )
+        if self._max_retry_wait_s <= 0:
+            raise ValueError(
+                f"LLM_MAX_RETRY_WAIT_S must be > 0, got {self._max_retry_wait_s}"
+            )
+
+        # Call total time bound (default 120, must be > 0)
+        self._max_call_seconds: float = (
+            float(max_call_seconds)
+            if max_call_seconds is not None
+            else float(getattr(settings, "LLM_MAX_CALL_SECONDS", 120.0))
+        )
+        if self._max_call_seconds <= 0:
+            raise ValueError(
+                f"LLM_MAX_CALL_SECONDS must be > 0, got {self._max_call_seconds}"
+            )
+
         self._rate_limiter = _TokenBucketRateLimiter(requests_per_minute)
         self._usage = TokenUsage()
         self._call_counter: int = 0  # calls actually sent
@@ -213,9 +270,13 @@ class GeminiProvider:
 
     # -- public helpers ------------------------------------------------
 
-    def get_usage(self) -> Dict[str, int]:
-        """Return a snapshot of accumulated token usage."""
-        return self._usage.snapshot()
+    def get_usage(self) -> Dict[str, Any]:
+        """Return a snapshot of accumulated token usage including settings metadata."""
+        snap = self._usage.snapshot()
+        snap["temperature_sent"] = self._temperature is not None
+        snap["thinking_level"] = self._thinking_level
+        snap["model_name"] = self._default_model
+        return snap
 
     def reset_usage(self) -> None:
         """Reset the per-run token accumulator and call counter."""
@@ -229,15 +290,16 @@ class GeminiProvider:
         prompt: str,
         system_instruction: Optional[str] = None,
         model: Optional[str] = None,
-        temperature: float = 0.0,
+        temperature: Optional[float] = None,
         max_tokens: Optional[int] = None,
     ) -> str:
         """Generate a plain-text completion."""
+        effective_temp = temperature if temperature is not None else self._temperature
         return await self._call(
             prompt=prompt,
             system_instruction=system_instruction,
             model=model or self._default_model,
-            temperature=temperature,
+            temperature=effective_temp,
             max_tokens=max_tokens,
             response_schema=None,
         )
@@ -248,14 +310,15 @@ class GeminiProvider:
         schema: Type[BaseModel],
         system_instruction: Optional[str] = None,
         model: Optional[str] = None,
-        temperature: float = 0.0,
+        temperature: Optional[float] = None,
     ) -> BaseModel:
         """Generate structured JSON validated against *schema*."""
+        effective_temp = temperature if temperature is not None else self._temperature
         raw = await self._call(
             prompt=prompt,
             system_instruction=system_instruction,
             model=model or self._default_model,
-            temperature=temperature,
+            temperature=effective_temp,
             max_tokens=None,
             response_schema=schema,
         )
@@ -294,7 +357,7 @@ class GeminiProvider:
         self,
         prompt: str,
         system_instruction: Optional[str],
-        temperature: float,
+        temperature: Optional[float],
         max_tokens: Optional[int],
         response_schema: Optional[Type[BaseModel]],
     ) -> Dict[str, Any]:
@@ -312,7 +375,15 @@ class GeminiProvider:
                 "parts": [{"text": system_instruction}],
             }
 
-        gen_config: Dict[str, Any] = {"temperature": temperature}
+        gen_config: Dict[str, Any] = {}
+        if temperature is not None:
+            gen_config["temperature"] = temperature
+
+        if self._thinking_level:
+            gen_config["thinkingConfig"] = {
+                "thinkingLevel": self._thinking_level,
+            }
+
         effective_max = max_tokens or self._max_output_tokens
         if effective_max:
             gen_config["maxOutputTokens"] = effective_max
@@ -323,7 +394,8 @@ class GeminiProvider:
                 response_schema
             )
 
-        body["generationConfig"] = gen_config
+        if gen_config:
+            body["generationConfig"] = gen_config
         return body
 
     async def _call(
@@ -331,7 +403,7 @@ class GeminiProvider:
         prompt: str,
         system_instruction: Optional[str],
         model: str,
-        temperature: float,
+        temperature: Optional[float],
         max_tokens: Optional[int],
         response_schema: Optional[Type[BaseModel]],
     ) -> str:
@@ -352,8 +424,17 @@ class GeminiProvider:
         )
         client = self._get_client()
 
+        call_start = time.monotonic()
         last_exception: Optional[Exception] = None
+
         for attempt in range(1, self._max_retries + 2):  # attempt 1 .. max+1
+            elapsed = time.monotonic() - call_start
+            remaining = self._max_call_seconds - elapsed
+            if remaining <= 0:
+                raise LLMTimeout(
+                    f"Call exceeded maximum call time limit of {self._max_call_seconds}s"
+                )
+
             # rate-limit
             await self._rate_limiter.acquire()
 
@@ -362,7 +443,8 @@ class GeminiProvider:
 
             t0 = time.monotonic()
             try:
-                resp = await client.post(url, json=body)
+                req_timeout = min(float(self._timeout_s), max(0.1, remaining))
+                resp = await client.post(url, json=body, timeout=req_timeout)
             except httpx.TimeoutException:
                 latency = time.monotonic() - t0
                 logger.warning(
@@ -377,7 +459,13 @@ class GeminiProvider:
                     f"Request timed out (attempt {attempt})"
                 )
                 if attempt <= self._max_retries:
-                    await self._backoff(attempt, retry_after=None)
+                    elapsed_after = time.monotonic() - call_start
+                    remaining_after = self._max_call_seconds - elapsed_after
+                    if remaining_after <= 0:
+                        raise LLMTimeout(
+                            f"Call exceeded maximum call time limit of {self._max_call_seconds}s"
+                        )
+                    await self._backoff(attempt, retry_after=None, max_wait=remaining_after)
                     continue
                 raise last_exception from None
             except httpx.HTTPError:
@@ -394,7 +482,13 @@ class GeminiProvider:
                     f"Connection error (attempt {attempt})"
                 )
                 if attempt <= self._max_retries:
-                    await self._backoff(attempt, retry_after=None)
+                    elapsed_after = time.monotonic() - call_start
+                    remaining_after = self._max_call_seconds - elapsed_after
+                    if remaining_after <= 0:
+                        raise LLMTimeout(
+                            f"Call exceeded maximum call time limit of {self._max_call_seconds}s"
+                        )
+                    await self._backoff(attempt, retry_after=None, max_wait=remaining_after)
                     continue
                 raise last_exception from None
 
@@ -419,12 +513,44 @@ class GeminiProvider:
                     "Gemini 404 Not Found",
                     extra={"model": model, "http_status": 404, "latency_s": round(latency, 3)},
                 )
-                raise LLMInvalidResponse(f"Model or resource not found (HTTP 404)")
+                raise LLMInvalidResponse("Model or resource not found (HTTP 404)")
 
-            # -- RETRY on 429 and 5xx ---------------------------------
+            # -- 429 and 5xx ------------------------------------------
             if status == 429 or status >= 500:
-                retry_after = self._parse_retry_after(resp)
                 if status == 429:
+                    # 1. Quota exhaustion check: per-day quota raises LLM_QUOTA_EXHAUSTED immediately (NO retry)
+                    if self._is_daily_quota_exhausted(resp):
+                        logger.warning(
+                            "Gemini per-day quota exhausted",
+                            extra={
+                                "model": model,
+                                "http_status": 429,
+                                "attempt": attempt,
+                                "latency_s": round(latency, 3),
+                            },
+                        )
+                        raise LLMQuotaExhausted(
+                            "Google Gemini per-day quota exhausted. Please check your API plan and billing at "
+                            "https://ai.google.dev/pricing or https://console.cloud.google.com/billing."
+                        )
+
+                    retry_after = self._parse_retry_after(resp)
+
+                    # 2. Retry wait cap: if delay exceeds cap, raise LLMRateLimited immediately (NO sleep)
+                    if retry_after is not None and retry_after > self._max_retry_wait_s:
+                        logger.warning(
+                            "Gemini retry delay exceeds cap",
+                            extra={
+                                "model": model,
+                                "http_status": 429,
+                                "retry_delay": retry_after,
+                                "cap": self._max_retry_wait_s,
+                            },
+                        )
+                        raise LLMRateLimited(
+                            f"Rate limit retry delay of {retry_after}s exceeds maximum wait of {self._max_retry_wait_s}s"
+                        )
+
                     logger.warning(
                         "Gemini rate limited",
                         extra={
@@ -438,6 +564,7 @@ class GeminiProvider:
                         f"Rate limited (HTTP 429, attempt {attempt})"
                     )
                 else:
+                    retry_after = self._parse_retry_after(resp)
                     logger.warning(
                         "Gemini server error",
                         extra={
@@ -450,8 +577,17 @@ class GeminiProvider:
                     last_exception = LLMUnavailable(
                         f"Server error (HTTP {status}, attempt {attempt})"
                     )
+
                 if attempt <= self._max_retries:
-                    await self._backoff(attempt, retry_after=retry_after)
+                    elapsed_after = time.monotonic() - call_start
+                    remaining_after = self._max_call_seconds - elapsed_after
+                    if remaining_after <= 0:
+                        raise LLMTimeout(
+                            f"Call exceeded maximum call time limit of {self._max_call_seconds}s"
+                        )
+                    await self._backoff(
+                        attempt, retry_after=retry_after, max_wait=remaining_after
+                    )
                     continue
                 raise last_exception
 
@@ -463,11 +599,16 @@ class GeminiProvider:
 
             data = resp.json()
 
-            # Record token usage
+            # Record token usage (candidates + thinking tokens for output total)
             usage_meta = data.get("usageMetadata", {})
             input_tokens = usage_meta.get("promptTokenCount", 0)
-            output_tokens = usage_meta.get("candidatesTokenCount", 0)
-            self._usage.record(input_tokens, output_tokens)
+            candidates_tokens = usage_meta.get("candidatesTokenCount", 0)
+            thinking_tokens = (
+                usage_meta.get("thoughtsTokenCount", 0)
+                or usage_meta.get("reasoningTokenCount", 0)
+            )
+            output_tokens = candidates_tokens + thinking_tokens
+            self._usage.record(input_tokens, output_tokens, thinking_tokens)
 
             logger.info(
                 "Gemini call completed",
@@ -477,6 +618,7 @@ class GeminiProvider:
                     "latency_s": round(latency, 3),
                     "input_tokens": input_tokens,
                     "output_tokens": output_tokens,
+                    "thinking_tokens": thinking_tokens,
                     "call_counter": self._call_counter,
                 },
             )
@@ -518,9 +660,15 @@ class GeminiProvider:
         if not parts:
             raise LLMInvalidResponse("Empty content parts in response")
 
-        text = parts[0].get("text", "")
-        if not text.strip():
-            raise LLMInvalidResponse("Empty text in response candidate")
+        # Join text of response parts that are not marked as thoughts
+        non_thought_parts = [
+            p.get("text", "")
+            for p in parts
+            if not p.get("thought", False) and p.get("text")
+        ]
+        text = "".join(non_thought_parts).strip()
+        if not text:
+            raise LLMInvalidResponse("No non-thought text in response candidate")
 
         if expecting_json:
             try:
@@ -533,6 +681,69 @@ class GeminiProvider:
         return text
 
     @staticmethod
+    def _is_daily_quota_exhausted(resp: httpx.Response) -> bool:
+        """Inspect error details to detect per-day quota exhaustion."""
+        try:
+            body = resp.json()
+        except Exception:
+            return False
+
+        error = body.get("error", {})
+        if not isinstance(error, dict):
+            return False
+
+        details = error.get("details", [])
+        if not isinstance(details, list):
+            details = []
+
+        day_terms = ("day", "daily", "per_day", "per-day", "perday")
+
+        for detail in details:
+            if not isinstance(detail, dict):
+                continue
+
+            # Check metadata fields (e.g. ErrorInfo)
+            metadata = detail.get("metadata", {})
+            if isinstance(metadata, dict):
+                for k, v in metadata.items():
+                    val_str = str(v).lower()
+                    key_str = str(k).lower()
+                    if "quota" in key_str or "metric" in key_str or "limit" in key_str:
+                        if any(term in val_str for term in day_terms):
+                            return True
+                    if any(term in val_str for term in ("requestsperday", "tokensperday", "perday", "per_day", "per-day", "daily")):
+                        return True
+
+            # Check QuotaFailure violations
+            violations = detail.get("violations", [])
+            if isinstance(violations, list):
+                for v in violations:
+                    if isinstance(v, dict):
+                        v_str = (
+                            str(v.get("description", ""))
+                            + " "
+                            + str(v.get("subject", ""))
+                            + " "
+                            + str(v.get("metric", ""))
+                        ).lower()
+                        if any(term in v_str for term in day_terms):
+                            return True
+
+            # Inspect all string values in the detail
+            for k, v in detail.items():
+                if isinstance(v, str):
+                    v_lower = v.lower()
+                    if any(term in v_lower for term in ("requestsperday", "tokensperday", "per_day", "per-day", "perday")) and "quota" in v_lower:
+                        return True
+
+        # Check top-level error message
+        msg = str(error.get("message", "")).lower()
+        if "quota" in msg and any(term in msg for term in ("per day", "daily", "per-day", "per_day")):
+            return True
+
+        return False
+
+    @staticmethod
     def _parse_retry_after(resp: httpx.Response) -> Optional[float]:
         """Extract retry delay from Retry-After header or Gemini error body."""
         # Standard Retry-After header
@@ -541,26 +752,33 @@ class GeminiProvider:
             try:
                 return float(ra)
             except ValueError:
-                return None
+                pass
 
         # Gemini-specific: RetryInfo in error body details
         try:
             body = resp.json()
             details = body.get("error", {}).get("details", [])
             for detail in details:
-                if detail.get("@type", "").endswith("RetryInfo"):
-                    delay_str = detail.get("retryDelay", "")
-                    match = re.match(r"([\d.]+)s", delay_str)
-                    if match:
-                        return float(match.group(1))
+                if isinstance(detail, dict) and detail.get("@type", "").endswith("RetryInfo"):
+                    delay_val = detail.get("retryDelay") or detail.get("retry_delay")
+                    if isinstance(delay_val, (int, float)):
+                        return float(delay_val)
+                    if isinstance(delay_val, str):
+                        match = re.match(r"^([\d.]+)s?$", delay_val.strip())
+                        if match:
+                            return float(match.group(1))
         except Exception:
             return None
 
         return None
 
     @staticmethod
-    async def _backoff(attempt: int, retry_after: Optional[float]) -> None:
-        """Exponential backoff with jitter, honoring Retry-After."""
+    async def _backoff(
+        attempt: int,
+        retry_after: Optional[float],
+        max_wait: Optional[float] = None,
+    ) -> None:
+        """Exponential backoff with jitter, honoring Retry-After, bounded by max_wait."""
         import random
 
         if retry_after is not None and retry_after > 0:
@@ -570,4 +788,8 @@ class GeminiProvider:
             jitter = random.uniform(0, base * 0.5)
             wait = base + jitter
 
-        await asyncio.sleep(wait)
+        if max_wait is not None and wait > max_wait:
+            wait = max_wait
+
+        if wait > 0:
+            await asyncio.sleep(wait)

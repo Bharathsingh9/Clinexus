@@ -10,7 +10,7 @@ import json
 import logging
 import time
 from typing import Any, Dict, List, Optional
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import httpx
 import pytest
@@ -22,6 +22,7 @@ from backend.app.core.llm_exceptions import (
     LLMCallCapReached,
     LLMInvalidResponse,
     LLMProviderError,
+    LLMQuotaExhausted,
     LLMRateLimited,
     LLMTimeout,
     LLMUnavailable,
@@ -113,6 +114,10 @@ def _make_provider(
     requests_per_minute: int = 6000,  # effectively no rate limit in tests
     max_output_tokens: Optional[int] = None,
     eval_max_llm_calls: Optional[int] = None,
+    temperature: Optional[float] = None,
+    thinking_level: Optional[str] = None,
+    max_retry_wait_s: Optional[float] = None,
+    max_call_seconds: Optional[float] = None,
 ) -> GeminiProvider:
     """Create a GeminiProvider with a mocked transport."""
     provider = GeminiProvider(
@@ -123,6 +128,10 @@ def _make_provider(
         requests_per_minute=requests_per_minute,
         max_output_tokens=max_output_tokens,
         eval_max_llm_calls=eval_max_llm_calls,
+        temperature=temperature,
+        thinking_level=thinking_level,
+        max_retry_wait_s=max_retry_wait_s,
+        max_call_seconds=max_call_seconds,
     )
     if transport is not None:
         # Use the provider's _get_client which sets the API key header,
@@ -1004,18 +1013,125 @@ def test_create_llm_provider_factory():
 
 
 # ---------------------------------------------------------------------------
+# Test: thinking/reasoning token usage accounting
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_thinking_tokens_recorded_in_output_usage():
+    """Thinking/reasoning tokens are added to total_output_tokens in usage."""
+    resp_data = {
+        "candidates": [
+            {
+                "content": {
+                    "parts": [{"text": "Answer with thinking"}],
+                    "role": "model",
+                },
+                "finishReason": "STOP",
+                "index": 0,
+            }
+        ],
+        "usageMetadata": {
+            "promptTokenCount": 15,
+            "candidatesTokenCount": 20,
+            "thoughtsTokenCount": 35,
+            "totalTokenCount": 70,
+        },
+        "modelVersion": _TEST_MODEL,
+    }
+    resp = httpx.Response(200, json=resp_data)
+    provider = _make_provider(transport=_make_transport([resp]))
+
+    result = await provider.generate_text("Explain quantum gravity")
+    assert result == "Answer with thinking"
+
+    usage = provider.get_usage()
+    assert usage["total_input_tokens"] == 15
+    # output tokens must include candidates (20) + thinking (35) = 55
+    assert usage["total_output_tokens"] == 55
+    assert usage["call_count"] == 1
+
+
+@pytest.mark.asyncio
+async def test_reasoning_tokens_fallback_recorded_in_output_usage():
+    """reasoningTokenCount is also counted towards total_output_tokens."""
+    resp_data = {
+        "candidates": [
+            {
+                "content": {
+                    "parts": [{"text": "Reasoning answer"}],
+                    "role": "model",
+                },
+                "finishReason": "STOP",
+                "index": 0,
+            }
+        ],
+        "usageMetadata": {
+            "promptTokenCount": 10,
+            "candidatesTokenCount": 25,
+            "reasoningTokenCount": 15,
+            "totalTokenCount": 50,
+        },
+        "modelVersion": _TEST_MODEL,
+    }
+    resp = httpx.Response(200, json=resp_data)
+    provider = _make_provider(transport=_make_transport([resp]))
+
+    result = await provider.generate_text("Explain")
+    assert result == "Reasoning answer"
+
+    usage = provider.get_usage()
+    assert usage["total_output_tokens"] == 40
+
+
+# ---------------------------------------------------------------------------
+# Test: structured output schema mode with SmokeSchema
+# ---------------------------------------------------------------------------
+
+class SmokeSchema(BaseModel):
+    ok: bool
+
+
+@pytest.mark.asyncio
+async def test_smoke_schema_structured_mode_parses_cleanly():
+    """Structured JSON mode with SmokeSchema sends schema and parses cleanly."""
+    resp_data = _gemini_ok_response(text='{"ok": true}')
+    resp = httpx.Response(200, json=resp_data)
+
+    captured_requests: List[Dict[str, Any]] = []
+
+    def capturing_handler(request: httpx.Request) -> httpx.Response:
+        captured_requests.append(json.loads(request.content))
+        return resp
+
+    transport = httpx.MockTransport(capturing_handler)
+    provider = _make_provider(transport=transport)
+
+    result = await provider.generate_json(
+        'Return a JSON object with the key "ok" set to true',
+        schema=SmokeSchema,
+    )
+    assert isinstance(result, SmokeSchema)
+    assert result.ok is True
+
+    # Verify schema and mime type were sent in generationConfig
+    gen_config = captured_requests[0]["generationConfig"]
+    assert gen_config["responseMimeType"] == "application/json"
+    assert "responseSchema" in gen_config
+    assert gen_config["responseSchema"]["type"] == "OBJECT"
+
+
+# ---------------------------------------------------------------------------
 # Live smoke test (requires network and real key)
 # ---------------------------------------------------------------------------
+
+class SmokeOkSchema(BaseModel):
+    ok: bool
+
 
 @pytest.mark.network
 @pytest.mark.asyncio
 async def test_live_smoke_gemini():
-    """Live smoke test: sends a harmless non-clinical prompt to Gemini.
-
-    Requires: LLM_PROVIDER=gemini and a valid LLM_API_KEY in the environment.
-    Prints only: model name, latency, token counts, JSON parse result.
-    NEVER prints: the key, the request body, or the full response.
-    """
+    """Live smoke test: structured JSON method with schema {ok: boolean}, 60s timeout."""
     import os
     from backend.app.core.config import settings
 
@@ -1034,26 +1150,456 @@ async def test_live_smoke_gemini():
     )
 
     t0 = time.monotonic()
-    result = await provider.generate_text(
-        'Return a JSON object with the key "ok" set to true',
-        temperature=0.0,
+    result = await asyncio.wait_for(
+        provider.generate_json(
+            'Return a JSON object with the key "ok" set to true',
+            schema=SmokeOkSchema,
+        ),
+        timeout=60.0,
     )
     latency = time.monotonic() - t0
 
     usage = provider.get_usage()
-    json_ok = False
-    try:
-        parsed = json.loads(result)
-        json_ok = parsed.get("ok") is True
-    except json.JSONDecodeError:
-        pass
+    json_ok = result.ok is True
 
-    print(f"\n--- Live Smoke Test ---")
-    print(f"Model: {model}")
-    print(f"Latency: {latency:.3f}s")
-    print(f"Input tokens: {usage['total_input_tokens']}")
-    print(f"Output tokens: {usage['total_output_tokens']}")
-    print(f"JSON parsed OK: {json_ok}")
-    print(f"-----------------------")
+    print(f"model: {model}")
+    print(f"latency: {latency:.3f}s")
+    print(f"input tokens: {usage['total_input_tokens']}")
+    print(f"output tokens: {usage['total_output_tokens']}")
+    print(f"thinking tokens: {usage.get('total_thinking_tokens', 0)}")
+    print(f"temperature_sent: {usage.get('temperature_sent', False)}")
+    print(f"thinking level: {usage.get('thinking_level')}")
+    print(f"JSON parsed: {json_ok}")
 
     assert json_ok, "Expected JSON with ok=true"
+
+
+# ---------------------------------------------------------------------------
+# Adapter hardening unit tests with mocked HTTP transport
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_429_with_6_hour_retry_delay_raises_immediately_no_sleep():
+    """A 429 with a 6-hour retryDelay raises LLMRateLimited immediately and sleep is never called."""
+    resp = httpx.Response(
+        429,
+        json=_gemini_error_response(429, message="Rate limited", retry_delay="21600s"),
+    )
+    transport = _make_transport([resp])
+    provider = _make_provider(transport=transport, max_retry_wait_s=30.0)
+
+    with patch("asyncio.sleep") as mock_sleep:
+        with pytest.raises(LLMRateLimited) as exc_info:
+            await provider.generate_text("Prompt")
+        assert "21600" in str(exc_info.value)
+        mock_sleep.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_per_day_quota_exhaustion_raises_llm_quota_exhausted_no_retry():
+    """Per-day quota gives LLM_QUOTA_EXHAUSTED with no retry and message pointing to plan/billing."""
+    error_body = {
+        "error": {
+            "code": 429,
+            "message": "Resource has been exhausted (e.g. check quota).",
+            "status": "RESOURCE_EXHAUSTED",
+            "details": [
+                {
+                    "@type": "type.googleapis.com/google.rpc.ErrorInfo",
+                    "reason": "RATE_LIMIT_EXCEEDED",
+                    "domain": "googleapis.com",
+                    "metadata": {
+                        "service": "generativelanguage.googleapis.com",
+                        "quota_limit": "GenerateContentRequestsPerDayPerProject",
+                    },
+                }
+            ],
+        }
+    }
+    call_count = 0
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal call_count
+        call_count += 1
+        return httpx.Response(429, json=error_body)
+
+    transport = httpx.MockTransport(handler)
+    provider = _make_provider(transport=transport, max_retries=3)
+
+    with pytest.raises(LLMQuotaExhausted) as exc_info:
+        await provider.generate_text("Prompt")
+
+    msg = str(exc_info.value).lower()
+    assert "plan" in msg and "billing" in msg
+    assert exc_info.value.error_code == "LLM_QUOTA_EXHAUSTED"
+    assert call_count == 1  # No retry!
+
+
+@pytest.mark.asyncio
+async def test_per_minute_429_retries_within_cap():
+    """Per-minute 429 retries with backoff within the retry wait cap."""
+    err_body = {
+        "error": {
+            "code": 429,
+            "message": "Resource has been exhausted (e.g. check quota).",
+            "status": "RESOURCE_EXHAUSTED",
+            "details": [
+                {
+                    "@type": "type.googleapis.com/google.rpc.ErrorInfo",
+                    "reason": "RATE_LIMIT_EXCEEDED",
+                    "domain": "googleapis.com",
+                    "metadata": {
+                        "service": "generativelanguage.googleapis.com",
+                        "quota_limit": "GenerateContentRequestsPerMinutePerProject",
+                    },
+                },
+                {
+                    "@type": "type.googleapis.com/google.rpc.RetryInfo",
+                    "retryDelay": "2s",
+                },
+            ],
+        }
+    }
+    call_count = 0
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1:
+            return httpx.Response(429, json=err_body)
+        return httpx.Response(200, json=_gemini_ok_response("Success after retry"))
+
+    transport = httpx.MockTransport(handler)
+    provider = _make_provider(transport=transport, max_retries=3, max_retry_wait_s=30.0)
+
+    with patch("asyncio.sleep") as mock_sleep:
+        text = await provider.generate_text("Prompt")
+        assert text == "Success after retry"
+        assert call_count == 2
+        mock_sleep.assert_called()
+
+
+@pytest.mark.asyncio
+async def test_call_time_bound_exceeded_raises_timeout():
+    """Total duration of one call is bounded by LLM_MAX_CALL_SECONDS."""
+    def handler(request: httpx.Request) -> httpx.Response:
+        time.sleep(0.06)
+        return httpx.Response(500, json=_gemini_error_response(500))
+
+    transport = httpx.MockTransport(handler)
+    provider = _make_provider(transport=transport, max_retries=3, max_call_seconds=0.04)
+
+    with pytest.raises(LLMTimeout) as exc_info:
+        await provider.generate_text("Prompt")
+    assert "time limit" in str(exc_info.value).lower() or "exceeded" in str(exc_info.value).lower()
+
+
+@pytest.mark.asyncio
+async def test_thought_parts_before_answer_are_skipped():
+    """Text extraction joins non-thought parts and skips thoughts; raises on empty non-thought text."""
+    data = {
+        "candidates": [
+            {
+                "content": {
+                    "parts": [
+                        {"thought": True, "text": "I am thinking through this diagnosis..."},
+                        {"thought": True, "text": "Step 2 reasoning..."},
+                        {"text": "The patient likely has "},
+                        {"text": "acute appendicitis."},
+                    ],
+                    "role": "model",
+                },
+                "finishReason": "STOP",
+                "index": 0,
+            }
+        ],
+        "usageMetadata": {
+            "promptTokenCount": 10,
+            "candidatesTokenCount": 12,
+            "thoughtsTokenCount": 25,
+        },
+    }
+    transport = _make_transport([httpx.Response(200, json=data)])
+    provider = _make_provider(transport=transport)
+    res = await provider.generate_text("Prompt")
+    assert res == "The patient likely has acute appendicitis."
+
+    # If all parts are thoughts, raise LLMInvalidResponse
+    thought_only_data = {
+        "candidates": [
+            {
+                "content": {
+                    "parts": [
+                        {"thought": True, "text": "I thought but gave no answer."},
+                    ],
+                    "role": "model",
+                },
+                "finishReason": "STOP",
+                "index": 0,
+            }
+        ]
+    }
+    transport2 = _make_transport([httpx.Response(200, json=thought_only_data)])
+    provider2 = _make_provider(transport=transport2)
+    with pytest.raises(LLMInvalidResponse):
+        await provider2.generate_text("Prompt")
+
+
+@pytest.mark.asyncio
+async def test_thinking_tokens_counted_separately_and_in_output():
+    """Thinking tokens (thoughtsTokenCount) recorded separately and included in total output tokens."""
+    data = _gemini_ok_response("Answer", input_tokens=15, output_tokens=30)
+    data["usageMetadata"]["thoughtsTokenCount"] = 20
+
+    transport = _make_transport([httpx.Response(200, json=data)])
+    provider = _make_provider(transport=transport)
+    await provider.generate_text("Prompt")
+
+    usage = provider.get_usage()
+    assert usage["total_input_tokens"] == 15
+    assert usage["total_output_tokens"] == 50
+    assert usage["total_thinking_tokens"] == 20
+
+
+@pytest.mark.asyncio
+async def test_unset_temperature_is_absent_from_request_body():
+    """When LLM_TEMPERATURE is unset, the field is omitted from the request body."""
+    captured_requests: List[Dict[str, Any]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured_requests.append(json.loads(request.content.decode("utf-8")))
+        return httpx.Response(200, json=_gemini_ok_response("ok"))
+
+    transport = httpx.MockTransport(handler)
+    provider = _make_provider(transport=transport, temperature=None)
+    await provider.generate_text("Prompt")
+
+    body = captured_requests[0]
+    gen_config = body.get("generationConfig", {})
+    assert "temperature" not in gen_config
+
+    # When temperature IS set, it is present in request body
+    captured_requests.clear()
+    provider_with_temp = _make_provider(transport=transport, temperature=0.7)
+    await provider_with_temp.generate_text("Prompt")
+    body2 = captured_requests[0]
+    assert body2["generationConfig"]["temperature"] == 0.7
+
+
+def test_invalid_thinking_level_rejected_at_startup_and_valid_sent():
+    """Startup validation rejects invalid thinking levels (including MINIMAL); valid levels are sent."""
+    from pydantic import ValidationError
+    from backend.app.core.config import Settings
+
+    # MINIMAL and other invalid values must be rejected at startup
+    with pytest.raises(ValidationError):
+        Settings(
+            SECRET_KEY="x" * 32,
+            ADMIN_PASSWORD="password123",
+            LLM_THINKING_LEVEL="MINIMAL",
+        )
+    with pytest.raises(ValidationError):
+        Settings(
+            SECRET_KEY="x" * 32,
+            ADMIN_PASSWORD="password123",
+            LLM_THINKING_LEVEL="EXTREME",
+        )
+
+    # GeminiProvider constructor also validates thinking_level
+    with pytest.raises(ValueError):
+        GeminiProvider(api_key=_TEST_KEY, default_model=_TEST_MODEL, thinking_level="MINIMAL")
+
+    # Valid values LOW, MEDIUM, HIGH are accepted
+    s_low = Settings(
+        SECRET_KEY="x" * 32,
+        ADMIN_PASSWORD="password123",
+        LLM_THINKING_LEVEL="low",
+    )
+    assert s_low.LLM_THINKING_LEVEL == "LOW"
+
+    # Verify field path sent to Gemini API: generationConfig.thinkingConfig.thinkingLevel
+    captured_requests: List[Dict[str, Any]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured_requests.append(json.loads(request.content.decode("utf-8")))
+        return httpx.Response(200, json=_gemini_ok_response("ok"))
+
+    transport = httpx.MockTransport(handler)
+    provider = _make_provider(transport=transport, thinking_level="HIGH")
+    asyncio.run(provider.generate_text("Prompt"))
+
+    body = captured_requests[0]
+    assert "generationConfig" in body
+    assert "thinkingConfig" in body["generationConfig"]
+    assert body["generationConfig"]["thinkingConfig"]["thinkingLevel"] == "HIGH"
+
+
+def test_six_agents_return_failed_with_llm_quota_exhausted():
+    """Each of the six LLM agents maps LLM_QUOTA_EXHAUSTED to FAILED with that error_code."""
+    from backend.app.agents.adaptive_optimizer import AdaptiveOptimizer
+    from backend.app.agents.answer_extractor import AnswerExtractor, AnswerExtractorInput, ExtractedReportClaim
+    from backend.app.agents.claim_verification_agent import ClaimVerificationAgent
+    from backend.app.agents.clinical_data_fusion import ClinicalDataFusion
+    from backend.app.agents.clinical_text_clarifier import ClinicalTextClarifier
+    from backend.app.agents.symptom_rag_analyzer import SymptomRAGAnalyzer
+    from backend.app.schemas.clinical_case import (
+        CaseSubmission,
+        ClinicalCase,
+        OriginEnum,
+        PolarityEnum,
+        SourceSpan,
+        StructuredSymptom,
+    )
+    from backend.app.schemas.evidence import RetrievedEvidenceSet, RetrievedPassageResult
+    from backend.app.schemas.executions import AgentStatusEnum
+    from backend.app.schemas.reports import (
+        CandidateClaim,
+        CandidateClinicalReport,
+        ClaimVerificationStatusEnum,
+    )
+
+    class QuotaExhaustedLLMProvider:
+        async def generate_text(self, *args, **kwargs) -> str:
+            raise LLMQuotaExhausted("Per-day quota exhausted. Check plan and billing.")
+
+        async def generate_json(self, *args, **kwargs):
+            raise LLMQuotaExhausted("Per-day quota exhausted. Check plan and billing.")
+
+        def get_usage(self) -> Dict[str, Any]:
+            return {"total_input_tokens": 0, "total_output_tokens": 0, "call_count": 0}
+
+    failing_llm = QuotaExhaustedLLMProvider()
+
+    # 1. ClinicalTextClarifier
+    clarifier = ClinicalTextClarifier(llm_provider=failing_llm)
+    res1 = clarifier.run(CaseSubmission(raw_text="45yo male with chest pain for 2 hours."))
+    assert res1.status == AgentStatusEnum.FAILED
+    assert res1.error_code == "LLM_QUOTA_EXHAUSTED"
+
+    # 2. SymptomRAGAnalyzer
+    class MockEmbeddingService:
+        model_name = "test-embedder"
+        def embed_query(self, text: str) -> List[float]:
+            return [0.1] * 768
+        def embed_text(self, text: str) -> List[float]:
+            return [0.1] * 768
+
+    mock_qdrant = MagicMock()
+    mock_qdrant.collection_exists.return_value = True
+    hit1 = MagicMock()
+    hit1.score = 0.85
+    hit1.payload = {"evidence_id": "ev:bioasq:1001:0"}
+    hit2 = MagicMock()
+    hit2.score = 0.82
+    hit2.payload = {"evidence_id": "ev:bioasq:1002:0"}
+    mock_qdrant.search.return_value = [hit1, hit2]
+
+    rag_analyzer = SymptomRAGAnalyzer(
+        qdrant_wrapper=mock_qdrant,
+        llm_provider=failing_llm,
+        embedding_service=MockEmbeddingService(),
+    )
+    case = ClinicalCase(
+        raw_text_hash="a" * 64,
+        age=30,
+        sex="male",
+        chief_complaint="fever",
+        symptom_duration="3 days",
+        structured_symptoms=[
+            StructuredSymptom(
+                term="fever",
+                normalized_term="fever",
+                vocabulary="LOCAL",
+                polarity=PolarityEnum.PRESENT,
+                source_span=SourceSpan(start=0, end=5),
+                origin=OriginEnum.STATED,
+            )
+        ],
+    )
+    pg_dict = {
+        "ev:bioasq:1001:0": {
+            "document_id": "doc-1",
+            "chunk_id": "chunk-1",
+            "title": "Test Title 1",
+            "source": "BIOASQ",
+            "publication_date": "2021",
+            "source_location": "abstract",
+            "evidence_level": "UNKNOWN",
+            "text": "Sample clinical passage text 1.",
+        },
+        "ev:bioasq:1002:0": {
+            "document_id": "doc-2",
+            "chunk_id": "chunk-2",
+            "title": "Test Title 2",
+            "source": "BIOASQ",
+            "publication_date": "2022",
+            "source_location": "abstract",
+            "evidence_level": "UNKNOWN",
+            "text": "Sample clinical passage text 2.",
+        },
+    }
+    rag_analyzer._fetch_postgres_passages = MagicMock(return_value=pg_dict)
+    res2 = rag_analyzer.run(case)
+    assert res2.status == AgentStatusEnum.FAILED
+    assert res2.error_code == "LLM_QUOTA_EXHAUSTED"
+
+    # 3. ClinicalDataFusion
+    fusion = ClinicalDataFusion(llm_provider=failing_llm)
+    local_ev = RetrievedEvidenceSet(query_id="q-1", results=[])
+    res3 = fusion.run(case, local_evidence=local_ev)
+    assert res3.status == AgentStatusEnum.FAILED
+    assert res3.error_code == "LLM_QUOTA_EXHAUSTED"
+
+    # 4. ClaimVerificationAgent
+    verifier = ClaimVerificationAgent(llm_provider=failing_llm)
+    passage1 = RetrievedPassageResult(
+        evidence_id="ev:bioasq:1001:0",
+        document_id="doc-1",
+        chunk_id="chunk-1",
+        title="[SYNTHETIC] Test Title 1",
+        source="BIOASQ",
+        retrieval_score=0.85,
+        rank=1,
+        corpus_version="1.0",
+        embedding_model="test-embedder",
+        query_id="q-1",
+        text="Sample clinical passage text 1.",
+    )
+    rep = CandidateClinicalReport(
+        version_number=1,
+        case_id="case-1",
+        summary="Clinical test report",
+        confidence_score=0.5,
+        claims=[
+            CandidateClaim(
+                claim_id="c1",
+                report_version_id="rv-1",
+                claim_text="Claim citing valid evidence",
+                section="evidence_supported_observations",
+                cited_evidence_ids=["ev:bioasq:1001:0"],
+            )
+        ],
+    )
+    res4 = verifier.run(report=rep, evidence_passages=[passage1])
+    assert res4.status == AgentStatusEnum.FAILED
+    assert res4.error_code == "LLM_QUOTA_EXHAUSTED"
+
+    # 5. AdaptiveOptimizer
+    optimizer = AdaptiveOptimizer(llm_provider=failing_llm)
+    res5 = optimizer.run(report=rep, iteration_history=[])
+    assert res5.status == AgentStatusEnum.FAILED
+    assert res5.error_code == "LLM_QUOTA_EXHAUSTED"
+
+    # 6. AnswerExtractor
+    extractor = AnswerExtractor(llm_provider=failing_llm)
+    ext_inp = AnswerExtractorInput(
+        question_type="yesno",
+        question="Is chest pain serious?",
+        claims=[ExtractedReportClaim(claim_text="Chest pain is serious", status=ClaimVerificationStatusEnum.SUPPORTED)],
+    )
+    res6 = extractor.extract(ext_inp)
+    assert res6.execution_record is not None
+    assert res6.execution_record.status == AgentStatusEnum.FAILED
+    assert res6.execution_record.error_code == "LLM_QUOTA_EXHAUSTED"
+
+

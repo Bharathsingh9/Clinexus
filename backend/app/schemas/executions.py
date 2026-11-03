@@ -89,6 +89,8 @@ class WorkflowResult(BaseModel):
     report: Optional[CandidateClinicalReport] = Field(None)
     abstention: Optional[AbstentionDecision] = Field(None)
     iterations_count: int = Field(default=0, ge=0, le=3)
+    is_benchmark: bool = Field(default=False, description="Whether execution ran in benchmark mode")
+    benchmark_label: Optional[str] = Field(None, description="Label for benchmark evaluation runs")
     completed_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     schema_version: str = Field(default="1.0")
 

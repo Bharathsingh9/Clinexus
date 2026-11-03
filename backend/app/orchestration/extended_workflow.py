@@ -488,6 +488,14 @@ class ExtendedWorkflowOrchestrator:
             )
             self.repository.save_case_findings(state.case_id, case.structured_symptoms)
 
+            if state.is_benchmark:
+                # SPEC 9.8 (a): required case fields empty so no blocking clarification for missing age/sex/duration
+                case_questions = [
+                    q for q in case.clarification_questions
+                    if not (q.is_blocking and any(k in q.reason.lower() for k in ("age", "sex", "duration", "required case field")))
+                ]
+                case = case.model_copy(update={"clarification_questions": case_questions})
+
             blocking = [q for q in case.clarification_questions if q.is_blocking]
             non_blocking = [q for q in case.clarification_questions if not q.is_blocking]
 
@@ -1064,12 +1072,20 @@ class ExtendedWorkflowOrchestrator:
     def node_finalize_ready(self, state: WorkflowState) -> Dict[str, Any]:
         """Node 9a: Marks synthesis report READY_FOR_REVIEW upon passing all gate safety checks."""
         assert state.report is not None
-        ready_report = state.report.model_copy(
-            update={
-                "status": ReportStatusEnum.READY_FOR_REVIEW,
-                "urgent_banner": state.urgent_banner,
-            }
-        )
+        ready_updates: Dict[str, Any] = {
+            "status": ReportStatusEnum.READY_FOR_REVIEW,
+            "urgent_banner": state.urgent_banner,
+        }
+        if state.is_benchmark:
+            ready_updates["benchmark_label"] = "BENCHMARK, NOT CLINICAL USE"
+            sum_txt = state.report.summary
+            if not sum_txt.startswith("[BENCHMARK, NOT CLINICAL USE]"):
+                ready_updates["summary"] = f"[BENCHMARK, NOT CLINICAL USE] {sum_txt}"
+            secs = dict(state.report.sections)
+            secs["benchmark_label"] = "BENCHMARK, NOT CLINICAL USE"
+            ready_updates["sections"] = secs
+
+        ready_report = state.report.model_copy(update=ready_updates)
 
         try:
             self.repository.update_report_version_summary(
@@ -1171,12 +1187,24 @@ class ExtendedWorkflowOrchestrator:
                 at_iteration_budget=(state.current_iteration >= settings.MAX_OPTIMIZER_ITERATIONS),
             )
 
+        abst_updates: Dict[str, Any] = {"urgent_banner": state.urgent_banner}
+        if state.is_benchmark:
+            abst_updates["benchmark_label"] = "BENCHMARK, NOT CLINICAL USE"
+            secs = dict(state.report.sections if state.report else {})
+            secs["benchmark_label"] = "BENCHMARK, NOT CLINICAL USE"
+            abst_updates["sections"] = secs
+
         abstained_report = create_abstained_report(
             original_report=state.report,
             abstention_decision=abst_dec,
             case=state.case,
             verifications=state.verifications,
-        ).model_copy(update={"urgent_banner": state.urgent_banner})
+        ).model_copy(update=abst_updates)
+
+        if state.is_benchmark and not abstained_report.summary.startswith("[BENCHMARK, NOT CLINICAL USE]"):
+            abstained_report = abstained_report.model_copy(
+                update={"summary": f"[BENCHMARK, NOT CLINICAL USE] {abstained_report.summary}"}
+            )
 
         try:
             self.repository.save_report_version(
@@ -1391,6 +1419,8 @@ class ExtendedWorkflowOrchestrator:
             report=state.report,
             abstention=state.abstention,
             iterations_count=len(state.iterations),
+            is_benchmark=state.is_benchmark,
+            benchmark_label="BENCHMARK, NOT CLINICAL USE" if state.is_benchmark else None,
             completed_at=datetime.now(timezone.utc),
         )
 

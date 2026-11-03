@@ -32,4 +32,5 @@ build/
 *.egg-info/
 demo/data/
 demo/viewer/data/
+evaluation_results/
 
