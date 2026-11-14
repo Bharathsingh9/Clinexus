@@ -247,6 +247,7 @@ class ExecutionRepository:
         case_id: str,
         is_benchmark: bool = False,
         status: str = "RUNNING",
+        idempotency_key: Optional[str] = None,
     ) -> WorkflowExecutionModel:
         """Create new workflow execution row."""
         with self._session_scope() as session:
@@ -259,12 +260,26 @@ class ExecutionRepository:
                 case_id=case_id,
                 status=status,
                 is_benchmark=is_benchmark,
+                idempotency_key=idempotency_key,
                 started_at=datetime.now(timezone.utc),
             )
             session.add(exec_row)
             session.commit()
             session.refresh(exec_row)
             return exec_row
+
+    def get_workflow_execution_by_idempotency_key(
+        self,
+        case_id: str,
+        idempotency_key: str,
+    ) -> Optional[WorkflowExecutionModel]:
+        """Lookup workflow execution by case_id and idempotency_key."""
+        with self._session_scope() as session:
+            stmt = select(WorkflowExecutionModel).where(
+                WorkflowExecutionModel.case_id == case_id,
+                WorkflowExecutionModel.idempotency_key == idempotency_key,
+            )
+            return session.scalars(stmt).first()
 
     def update_workflow_execution(
         self,

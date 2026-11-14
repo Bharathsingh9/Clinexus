@@ -111,11 +111,15 @@ class CaseFinding(Base):
 
 class WorkflowExecution(Base):
     __tablename__ = "workflow_executions"
+    __table_args__ = (
+        UniqueConstraint("case_id", "idempotency_key", name="uq_workflow_executions_case_idempotency"),
+    )
 
     id = Column(String(36), primary_key=True, default=gen_uuid)
     case_id = Column(String(36), ForeignKey("clinical_cases.id", ondelete="CASCADE"), nullable=False, index=True)
     status = Column(String(50), nullable=False, default="RUNNING")
     is_benchmark = Column(Boolean, nullable=False, default=False)
+    idempotency_key = Column(String(255), nullable=True)
     started_at = Column(DateTime(timezone=True), nullable=False, default=utcnow)
     completed_at = Column(DateTime(timezone=True), nullable=True)
     failure_reason = Column(String(255), nullable=True)

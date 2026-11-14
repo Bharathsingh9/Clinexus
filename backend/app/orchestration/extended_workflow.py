@@ -1463,13 +1463,15 @@ class ExtendedWorkflowOrchestrator:
         submission: Union[WorkflowState, CaseSubmission, Dict[str, Any]],
         case_id: Optional[str] = None,
         is_benchmark: bool = False,
+        execution_id: Optional[str] = None,
+        idempotency_key: Optional[str] = None,
     ) -> WorkflowState:
         """Execute the extended LangGraph workflow synchronously."""
         if isinstance(submission, WorkflowState):
             initial_state = submission
         else:
             cid = case_id or str(uuid.uuid4())
-            exec_id = str(uuid.uuid4())
+            exec_id = execution_id or str(uuid.uuid4())
             sub_obj = submission if isinstance(submission, CaseSubmission) else None
             sub_dict = submission if isinstance(submission, dict) else None
 
@@ -1527,6 +1529,7 @@ class ExtendedWorkflowOrchestrator:
             case_id=initial_state.case_id,
             is_benchmark=initial_state.is_benchmark,
             status="RUNNING",
+            idempotency_key=idempotency_key,
         )
 
         final_dict = self.graph.invoke(initial_state)

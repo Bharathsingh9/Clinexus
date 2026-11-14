@@ -3,7 +3,7 @@
 Specification Section 2, Appendix A6, A7.
 """
 
-from typing import List, Optional
+from typing import Any, List, Optional, Union
 from pydantic import ConfigDict, Field, field_validator, model_validator
 from pydantic_settings import BaseSettings
 
@@ -153,6 +153,27 @@ class Settings(BaseSettings):
         description="Initial administrator password; must be set in environment or .env."
     )
 
+    # API, CORS, and Rate Limiting (Phase 6 Stage A, SPEC Section 7)
+    CORS_ALLOWED_ORIGINS: List[str] = Field(
+        default_factory=lambda: ["http://localhost:5173"],
+        description="Allowed CORS origins list; must never contain wildcards."
+    )
+    CASE_MAX_CHARS: int = Field(
+        default=20000,
+        ge=1,
+        description="Maximum allowed character length for free-text patient case submission."
+    )
+    RATE_LIMIT_LOGIN_PER_MINUTE: int = Field(
+        default=10,
+        ge=1,
+        description="In-memory rate limit for login attempts per IP per minute."
+    )
+    RATE_LIMIT_ANALYZE_PER_MINUTE: int = Field(
+        default=30,
+        ge=1,
+        description="In-memory rate limit for analyze requests per IP per minute."
+    )
+
     model_config = ConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
@@ -182,6 +203,34 @@ class Settings(BaseSettings):
                 f"Other providers are not yet implemented."
             )
         return clean_v
+
+    @field_validator("CORS_ALLOWED_ORIGINS", mode="before")
+    @classmethod
+    def validate_cors_origins(cls, v: Any) -> List[str]:
+        if isinstance(v, str):
+            clean_str = v.strip()
+            if clean_str.startswith("[") and clean_str.endswith("]"):
+                import json
+                try:
+                    parsed = json.loads(clean_str)
+                    if isinstance(parsed, list):
+                        v = parsed
+                except Exception:
+                    logger.debug("CORS string is not JSON array; falling back to comma split.")
+            if isinstance(v, str):
+                v = [item.strip() for item in clean_str.split(",") if item.strip()]
+        if not isinstance(v, list):
+            raise ValueError(f"CORS_ALLOWED_ORIGINS must be a list of origin URLs, got {v}")
+        if not v:
+            raise ValueError("CORS_ALLOWED_ORIGINS cannot be empty.")
+        for origin in v:
+            if not isinstance(origin, str):
+                raise ValueError(f"Origin entry must be a string, got {origin}")
+            if "*" in origin:
+                raise ValueError(
+                    f"CORS_ALLOWED_ORIGINS must never contain wildcards (security requirement); got '{origin}'"
+                )
+        return v
 
     @field_validator("EVAL_MAX_LLM_CALLS")
     @classmethod

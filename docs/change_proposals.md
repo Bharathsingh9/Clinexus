@@ -172,3 +172,19 @@ In accordance with Rule **R10**, any high-impact detail, specification differenc
   **STOPPED**. Per user instructions and SPEC Appendix A13, build none of these variants in Stage D Part 1.
 - **Impact**:
   Prevents invalid comparisons between unverified claims and verified claims, documents architectural dependencies for future benchmark design, and keeps Phase 5 Stage D scoped strictly to confirmed components.
+
+---
+
+## CP-09: Representation of Clinician-Supplied Clarification Text in Re-Analysis
+- **Status**: STOPPED (Date: 2026-11-03, Decision Pointer: Phase 6 Stage A Mandate)
+- **Problem**:
+  In Phase 6 Stage A, endpoint `POST /cases/{id}/clarifications` allows a clinician reviewer to supply clarification notes or responses to patient text. However, `review_service.py` records clarification actions and human notes in `human_reviews` and `audit_events`, but neither stores clinician-supplied clarification text onto `clinical_cases` nor defines a schema for passing augmented clinical findings into the subsequent `ExtendedWorkflow.run()`. Inventing state augmentation semantics without specification violates Rule R10.
+- **Options**:
+  1. *Option 1 (Structured Append to Case Context)*: Add a `clarifications` JSONB array column to `clinical_cases` (or a dedicated `case_clarifications` table), appending clinician responses and having `ExtendedWorkflow` concatenate them to the original narrative with explicit `[CLINICIAN_CLARIFICATION]` provenance delimitations.
+  2. *Option 2 (New Case Version / Revision Submission)*: Treat clarification as creating an updated `CaseSubmission` linked to the parent case via `parent_case_id`, re-triggering the Clarifier agent with both original text and clinician clarification.
+  3. *Option 3 (In-Place Note Recording Only - Current Baseline)*: Record the clarification action and note in `human_reviews` and `audit_events` without modifying narrative text; require the clinician to submit a revised case narrative if patient facts change.
+- **Recommendation**:
+  Option 1: Provide a schema-backed clarification model with explicit provenance boundaries so the agent workflow can incorporate clinician responses without mutating raw initial patient input.
+- **Impact**:
+  Until approved, `POST /cases/{id}/clarifications` records the review action, note, and audit event without altering narrative text or starting a new workflow execution.
+
