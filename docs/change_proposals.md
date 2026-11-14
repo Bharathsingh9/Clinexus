@@ -188,3 +188,20 @@ In accordance with Rule **R10**, any high-impact detail, specification differenc
 - **Impact**:
   Until approved, `POST /cases/{id}/clarifications` records the review action, note, and audit event without altering narrative text or starting a new workflow execution.
 
+---
+
+## CP-10: Frontend Execution Linkage and Structured Case Submission Exposure
+- **Status**: STOPPED (Date: 2026-11-14, Decision Pointer: Phase 6 Stage B Prompt / Step 0e)
+- **Problem**:
+  1. The Dashboard specification requires displaying "recent executions derived from the cases list" with deep navigation to `/cases/:id/analysis/:executionId`. However, `CaseSummaryResponse` and `CaseDetailResponse` provide `latest_execution_status: Optional[str]`, omitting `latest_execution_id`. Furthermore, the API provides no `GET /executions` listing endpoint. Consequently, execution IDs cannot be queried from the API to form direct execution links or an execution list from the cases collection.
+  2. The Case Submission specification mentions optional structured fields and missing-information hints computed from empty structured fields. However, `CreateCaseRequest` in `docs/openapi.json` is strictly typed with `additionalProperties: false` and only contains `raw_text: str` with `minLength: 1`, without `maxLength` in the OpenAPI schema and without structured fields (e.g. age, sex, duration). Submitting structured fields to `POST /cases` yields HTTP 422 `VALIDATION_ERROR`.
+- **Options**:
+  1. *Option 1 (Schema & Model Augmentation)*: Add `latest_execution_id: Optional[str]` to `CaseSummaryResponse` and `CaseDetailResponse` in `backend/app/api/endpoints/cases.py`. In `CreateCaseRequest`, add `maxLength=20000` and optional structured fields (`age`, `sex`, `duration`, etc.) matching internal `CaseSubmission` / `PatientContext`.
+  2. *Option 2 (Dedicated Executions Endpoint)*: Add `GET /executions` with pagination to list recent executions across cases, and keep `POST /cases` accepting only `raw_text`.
+  3. *Option 3 (UI Strict Conformance - Current Baseline)*: Comply with the existing API without backend changes: on Dashboard, display recent execution status from `CaseSummaryResponse.latest_execution_status` while displaying execution deep links as "Not available from the API (execution ID not returned by GET /cases)"; on Case Submission, render the narrative free-text field, derive maximum character limits from OpenAPI (fallback to safe default or show unbounded when omitted in schema), and mark structured fields and hints as "Not available from the API (POST /cases accepts raw_text only)".
+- **Recommendation**:
+  Option 1: Add `latest_execution_id` to `CaseSummaryResponse` and define `maxLength` on `CreateCaseRequest.raw_text`.
+- **Impact**:
+  Until approved, the frontend implements Option 3, displaying "Not available from the API" with explicit reasons, preserving Rule R1, R7, and R10.
+
+

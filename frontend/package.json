@@ -1,0 +1,49 @@
+{
+  "name": "clinexus-frontend",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "generate:types": "openapi-typescript ../docs/openapi.json -o src/api/schema.d.ts",
+    "test": "vitest run",
+    "test:e2e": "playwright test",
+    "lint": "eslint src tests --ext .ts,.tsx",
+    "lint:fix": "eslint src tests --ext .ts,.tsx --fix",
+    "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\" \"tests/**/*.{ts,tsx}\"",
+    "format": "prettier --write \"src/**/*.{ts,tsx,css}\" \"tests/**/*.{ts,tsx}\"",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@tanstack/react-query": "5.59.16",
+    "lucide-react": "0.453.0",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "react-router-dom": "6.27.0"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "4.10.0",
+    "@playwright/test": "1.48.1",
+    "@testing-library/jest-dom": "6.6.2",
+    "@testing-library/react": "16.0.1",
+    "@testing-library/user-event": "14.5.2",
+    "@types/eslint": "8.56.12",
+    "@types/node": "20.17.0",
+    "@types/react": "18.3.11",
+    "@types/react-dom": "18.3.1",
+    "@typescript-eslint/eslint-plugin": "8.10.0",
+    "@typescript-eslint/parser": "8.10.0",
+    "@vitejs/plugin-react": "4.3.3",
+    "eslint": "8.57.1",
+    "eslint-plugin-react-hooks": "5.0.0",
+    "jsdom": "25.0.1",
+    "msw": "2.5.0",
+    "openapi-typescript": "7.4.1",
+    "prettier": "3.3.3",
+    "typescript": "5.6.3",
+    "vite": "5.4.10",
+    "vitest": "2.1.3"
+  }
+}

@@ -1,0 +1,7 @@
+.skeleton {
+  background-color: var(--color-bg-muted);
+  border-radius: var(--radius-sm);
+  display: inline-block;
+  width: 100%;
+  height: 1rem;
+}

@@ -1,0 +1,48 @@
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  border: 1px solid var(--color-border);
+  background-color: var(--color-bg-subtle);
+  color: var(--color-text-secondary);
+}
+
+.patient {
+  border-color: var(--color-border-subtle);
+  background-color: var(--color-bg-subtle);
+  color: var(--color-text-primary);
+}
+
+.evidence {
+  border-color: var(--color-primary-border);
+  background-color: var(--color-primary-subtle);
+  color: var(--color-primary);
+}
+
+.ai {
+  border-color: var(--color-status-completed-border);
+  background-color: var(--color-status-completed-bg);
+  color: var(--color-status-completed);
+}
+
+.unverified {
+  border-color: var(--color-status-partial-border);
+  background-color: var(--color-status-partial-bg);
+  color: var(--color-status-partial);
+}
+
+.human {
+  border-color: var(--color-status-human-border);
+  background-color: var(--color-status-human-bg);
+  color: var(--color-status-human);
+}
+
+.icon {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}

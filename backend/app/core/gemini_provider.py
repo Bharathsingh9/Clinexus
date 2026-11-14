@@ -752,7 +752,7 @@ class GeminiProvider:
             try:
                 return float(ra)
             except ValueError:
-                pass
+                logger.debug("Non-numeric Retry-After header: %s", ra)
 
         # Gemini-specific: RetryInfo in error body details
         try:
